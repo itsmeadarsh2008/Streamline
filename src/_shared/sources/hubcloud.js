@@ -4,7 +4,7 @@
  * `extractMdrive()` and the Gofile terminal from `Extractors.kt`.
  */
 import cheerio from 'cheerio-without-node-native';
-import { UA } from '../constants.js';
+import { UA, dynUrl } from '../constants.js';
 import { b64DecodeUtf8, fetchText, makeStream, parseQuality } from '../utils.js';
 import { parseMeta, enrichStream, richName, richTitle } from '../meta.js';
 
@@ -197,7 +197,16 @@ export async function resolveHubcloud(url, sourceName) {
     const name = sourceName || "HubCloud";
     const out = [];
     try {
-        const baseUrl = getBaseUrl(url);
+        // Port of getLatestBaseUrl(): migrate stale hub mirrors to the live
+        // one from urls.json before fetching anything.
+        let baseUrl = getBaseUrl(url);
+        try {
+            const latest = await dynUrl(url.indexOf("vcloud") !== -1 ? "vcloud" : "hubcloud");
+            if (latest && baseUrl !== latest) {
+                url = url.replace(baseUrl, latest);
+                baseUrl = latest;
+            }
+        } catch (e) { /* keep scraped base */ }
         let doc = await fetchText(url, {}, 20000);
         let $ = cheerio.load(doc);
         let link = "";
@@ -254,16 +263,23 @@ export async function resolveHubcloud(url, sourceName) {
         }
 
         // 1-byte playability probe: expired single-use links (Access Denied)
-        // are dropped so listed rows actually play.
+        // are dropped so listed rows actually play. 206 always counts;
+        // a 200 must carry a video-ish content-type (HTML error pages and
+        // unredirected interstitials are rejected, not listed).
         async function probeOk(u) {
             try {
                 const res = await fetch(u, {
                     redirect: "follow",
                     headers: { "User-Agent": UA, Referer: link, Range: "bytes=0-0" }
                 });
-                if (res.status === 206 || res.status === 200) {
-                    try { await res.text(); } catch (e) { /* tiny body, ignore */ }
+                if (res.status === 206) {
+                    try { await res.text(); } catch (e) { /* 1-byte body */ }
                     return true;
+                }
+                if (res.status === 200) {
+                    const ct = (res.headers && typeof res.headers.get === "function"
+                        ? res.headers.get("content-type") : "") || "";
+                    if (/video|octet-stream|matroska|mp4|mpegurl|m3u8/i.test(ct)) return true;
                 }
             } catch (e) { /* dead link */ }
             return false;
@@ -338,10 +354,32 @@ export async function resolveHubcloud(url, sourceName) {
     return out;
 }
 
+/** Port of `Hubdrive.getUrl()`: success-button href -> terminal chain. */
+export async function resolveHubdrive(url) {
+    try {
+        const html = await fetchText(url, {}, 20000);
+        let href = "";
+        try {
+            const $ = cheerio.load(html);
+            href = $(".btn.btn-primary.btn-user.btn-success1.m-1").attr("href") || "";
+        } catch (e) { /* fall through to regex */ }
+        if (!href) {
+            const m = html.match(/<a[^>]*class="[^"]*btn-success1[^"]*"[^>]*href="([^"]+)"/i) ||
+                html.match(/<a[^>]*href="([^"]+)"[^>]*class="[^"]*btn-success1[^"]*"/i);
+            href = m ? m[1] : "";
+        }
+        if (!href) return [];
+        return await resolveSourceLink("Hubdrive", fixUrl(href, getBaseUrl(url)));
+    } catch (e) {
+        return [];
+    }
+}
+
 /** Route a scraped href through the right terminal (port of `loadSourceNameExtractor`). */
 export async function resolveSourceLink(source, url) {
     const u = String(url || "");
     if (!u) return [];
+    if (/hubdrive\./i.test(u)) return await resolveHubdrive(u);
     if (/hubcloud\.|vcloud\./i.test(u)) return await resolveHubcloud(u, source);
     if (/gofile\.io\/d\//i.test(u)) {
         const g = await resolveGofile(u);

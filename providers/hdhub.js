@@ -854,7 +854,15 @@ function resolveHubcloud(url, sourceName) {
           out.push(s);
         }
       };
-      const baseUrl = getBaseUrl(url);
+      let baseUrl = getBaseUrl(url);
+      try {
+        const latest = yield dynUrl(url.indexOf("vcloud") !== -1 ? "vcloud" : "hubcloud");
+        if (latest && baseUrl !== latest) {
+          url = url.replace(baseUrl, latest);
+          baseUrl = latest;
+        }
+      } catch (e) {
+      }
       let doc = yield fetchText(url, {}, 2e4);
       let $ = import_cheerio_without_node_native.default.load(doc);
       let link = "";
@@ -890,12 +898,17 @@ function resolveHubcloud(url, sourceName) {
               redirect: "follow",
               headers: { "User-Agent": UA, Referer: link, Range: "bytes=0-0" }
             });
-            if (res.status === 206 || res.status === 200) {
+            if (res.status === 206) {
               try {
                 yield res.text();
               } catch (e) {
               }
               return true;
+            }
+            if (res.status === 200) {
+              const ct = (res.headers && typeof res.headers.get === "function" ? res.headers.get("content-type") : "") || "";
+              if (/video|octet-stream|matroska|mp4|mpegurl|m3u8/i.test(ct))
+                return true;
             }
           } catch (e) {
           }
@@ -977,11 +990,35 @@ function resolveHubcloud(url, sourceName) {
     return out;
   });
 }
+function resolveHubdrive(url) {
+  return __async(this, null, function* () {
+    try {
+      const html = yield fetchText(url, {}, 2e4);
+      let href = "";
+      try {
+        const $ = import_cheerio_without_node_native.default.load(html);
+        href = $(".btn.btn-primary.btn-user.btn-success1.m-1").attr("href") || "";
+      } catch (e) {
+      }
+      if (!href) {
+        const m = html.match(/<a[^>]*class="[^"]*btn-success1[^"]*"[^>]*href="([^"]+)"/i) || html.match(/<a[^>]*href="([^"]+)"[^>]*class="[^"]*btn-success1[^"]*"/i);
+        href = m ? m[1] : "";
+      }
+      if (!href)
+        return [];
+      return yield resolveSourceLink("Hubdrive", fixUrl(href, getBaseUrl(url)));
+    } catch (e) {
+      return [];
+    }
+  });
+}
 function resolveSourceLink(source, url) {
   return __async(this, null, function* () {
     const u = String(url || "");
     if (!u)
       return [];
+    if (/hubdrive\./i.test(u))
+      return yield resolveHubdrive(u);
     if (/hubcloud\.|vcloud\./i.test(u))
       return yield resolveHubcloud(u, source);
     if (/gofile\.io\/d\//i.test(u)) {

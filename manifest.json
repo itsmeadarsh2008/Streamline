@@ -1,6 +1,6 @@
 {
   "name": "Streamline",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Streamline — complete Nuvio streaming plugin. Port of CineStream (Cloudstream) under the Streamline name: one provider per source for movies, series and anime, running on-device.",
   "author": "Streamline",
   "scrapers": [
@@ -294,7 +294,7 @@
       "id": "hdhub",
       "name": "4KHDHub",
       "description": "4KHDHub direct links, 480p up to UHD REMUX — giant files kept (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -317,7 +317,7 @@
       "id": "uhdmovies",
       "name": "UHDMovies",
       "description": "UHDMovies multi-resolution direct links (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -340,7 +340,7 @@
       "id": "moviesmod",
       "name": "MoviesMod",
       "description": "MoviesMod multi-quality direct links (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -363,7 +363,7 @@
       "id": "moviesdrive",
       "name": "MoviesDrive",
       "description": "MoviesDrive HubCloud/GDrive extraction (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -386,7 +386,7 @@
       "id": "vegamovies",
       "name": "VegaMovies",
       "description": "VegaMovies high-quality direct links, full REMUX kept (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -409,7 +409,7 @@
       "id": "rogmovies",
       "name": "RogMovies",
       "description": "RogMovies for Indian titles, full quality kept (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -432,7 +432,7 @@
       "id": "bollyflix",
       "name": "Bollyflix",
       "description": "Bollyflix multi-quality direct links (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
