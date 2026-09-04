@@ -76,21 +76,23 @@ export async function postJson(url, body, headers, timeoutMs) {
     }
 }
 
-/** Port of CineStream `getIndexQuality()`. Returns a Nuvio quality label. */
+/** Port of CineStream `getIndexQuality()`. Returns a Nuvio quality label.
+ *  Explicit resolution numbers win over bare 4K/UHD tokens (release tags
+ *  like "4kHdHub" must not promote a 1080p file to 4K). */
 export function parseQuality(raw) {
     if (raw == null) return "Auto";
-    const s = String(raw).toLowerCase();
-    if (/\b8k\b/.test(s)) return "8K";
-    if (/2160|4k|uhd/.test(s)) return "4K";
-    const m = s.match(/(\d{3,4})\s*p?/);
+    const s = String(raw).toLowerCase().replace(/4khdhub|uhdmovies|vegamovies|moviesmod|moviesdrive|bollyflix|hubcloud|vcloud|pixeldrain|gofile/g, " ");
+    const m = s.match(/(\d{3,4})\s*p/i);
     if (m) {
         const n = parseInt(m[1], 10);
-        if (n >= 2000) return "4K";
+        if (n >= 4000) return "8K";
         if (n >= 1000) return "1080p";
         if (n >= 700) return "720p";
         if (n >= 400) return "480p";
         if (n > 0) return "360p";
     }
+    if (/\b8k\b/.test(s)) return "8K";
+    if (/2160|4k|uhd/.test(s)) return "4K";
     if (/org/.test(s)) return "4K";
     if (/cam|ts|telesync|telecine|hdcam/.test(s)) return "CAM";
     if (/hd/.test(s)) return "720p";

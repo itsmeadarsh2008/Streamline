@@ -155,16 +155,12 @@ function fetchText(url, headers, timeoutMs) {
 function parseQuality(raw) {
   if (raw == null)
     return "Auto";
-  const s = String(raw).toLowerCase();
-  if (/\b8k\b/.test(s))
-    return "8K";
-  if (/2160|4k|uhd/.test(s))
-    return "4K";
-  const m = s.match(/(\d{3,4})\s*p?/);
+  const s = String(raw).toLowerCase().replace(/4khdhub|uhdmovies|vegamovies|moviesmod|moviesdrive|bollyflix|hubcloud|vcloud|pixeldrain|gofile/g, " ");
+  const m = s.match(/(\d{3,4})\s*p/i);
   if (m) {
     const n = parseInt(m[1], 10);
-    if (n >= 2e3)
-      return "4K";
+    if (n >= 4e3)
+      return "8K";
     if (n >= 1e3)
       return "1080p";
     if (n >= 700)
@@ -174,6 +170,10 @@ function parseQuality(raw) {
     if (n > 0)
       return "360p";
   }
+  if (/\b8k\b/.test(s))
+    return "8K";
+  if (/2160|4k|uhd/.test(s))
+    return "4K";
   if (/org/.test(s))
     return "4K";
   if (/cam|ts|telesync|telecine|hdcam/.test(s))
@@ -263,8 +263,11 @@ function firstMatch(text, re) {
   const m = String(text || "").match(re);
   return m ? m[0] : null;
 }
+var SITE_TAGS = /4khdhub|uhdmovies|vegamovies|moviesmod|moviesdrive|bollyflix|rogmovies|topmovies|hubcloud|vcloud|hubdrive|pixeldrain|gofile|driveleech|driveseed|fastdlserver|linksmod|moviemod|hdhub4u|movies4u|dudefilms|mlsbd|multimovies|skymovies|rtally|toonstream/gi;
 function parseMeta(raw) {
-  const text = String(raw || "");
+  const cleaned = String(raw || "").replace(SITE_TAGS, " ");
+  const noUrl = cleaned.replace(/https?:\/\/\S+/g, " ");
+  const text = cleaned;
   const meta = {
     quality: "Auto",
     rank: 0,
@@ -280,19 +283,21 @@ function parseMeta(raw) {
     container: ""
   };
   const qm = text.match(/(\d{3,4})\s*p/i);
-  if (/\b8k\b/i.test(text))
+  if (qm) {
+    const n = parseInt(qm[1], 10);
+    meta.quality = n >= 2e3 ? n >= 4e3 ? "8K" : "4K" : n >= 1e3 ? "1080p" : n >= 700 ? "720p" : n >= 400 ? "480p" : "360p";
+    if (n >= 8e3)
+      meta.quality = "8K";
+  } else if (/\b8k\b/i.test(text))
     meta.quality = "8K";
   else if (/2160|4k|uhd/i.test(text))
     meta.quality = "4K";
-  else if (qm) {
-    const n = parseInt(qm[1], 10);
-    meta.quality = n >= 2e3 ? "4K" : n >= 1e3 ? "1080p" : n >= 700 ? "720p" : n >= 400 ? "480p" : "360p";
-  } else if (/cam|hdcam|telesync|telecine|\bts\b|\btc\b|scr|dvdscr/i.test(text))
+  else if (/cam|hdcam|telesync|telecine|\bts\b|\btc\b|scr|dvdscr/i.test(text))
     meta.quality = "CAM";
   else if (/\bhd\b/i.test(text))
     meta.quality = "720p";
   meta.rank = qualityRank(meta.quality);
-  const sm = text.match(/(\d+(?:\.\d+)?)\s*(GB|MB)/i);
+  let sm = noUrl.match(/(\d+(?:\.\d+)?)\s*(GB|MB)/i) || text.match(/(\d+(?:\.\d+)?)\s*(GB|MB)/i);
   if (sm) {
     meta.size = parseFloat(sm[1]).toFixed(sm[2].toUpperCase() === "GB" && sm[1].indexOf(".") === -1 ? 0 : 2).replace(/\.00$/, "") + " " + sm[2].toUpperCase();
     meta.sizeMB = Math.round(parseFloat(sm[1]) * (sm[2].toUpperCase() === "GB" ? 1024 : 1));

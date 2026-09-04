@@ -80,6 +80,16 @@ async function offline() {
         {
             raw: "Breaking.Bad.S01E01.1080p.BluRay.x264.DD5.1.HIN-ENG [1.52 GB]",
             quality: "1080p", codec: "H.264", audio: "DD5.1", source: "BluRay", size: "1.52 GB"
+        },
+        {
+            // Release-group tag must not promote the quality…
+            raw: "Spider-Man.Into.the.Spider-Verse.2018.1080p.WEB-DL.Hindi.DD5.1.x264-FGT-4kHdHub.mkv [1.41 GB]",
+            quality: "1080p", audio: "DD5.1", source: "WEB-DL", size: "1.41 GB"
+        },
+        {
+            // …nor may a bare UHD token override an explicit number
+            raw: "Show.S01E01.720p.HDTV.x264-UHDMovies [800 MB] https://cdn.example.workers.dev/abc123def",
+            quality: "720p", source: "HDTV", size: "800 MB"
         }
     ];
     const metaMod = await import('./src/_shared/meta.js').catch(function () { return null; });

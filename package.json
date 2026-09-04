@@ -1,6 +1,6 @@
 {
   "name": "streamline",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Streamline — Nuvio streaming plugin (port of CineStream). Multi-source movies, series & anime running on-device.",
   "scripts": {
     "build": "bun build.js",
