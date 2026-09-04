@@ -1,6 +1,6 @@
 {
   "name": "Streamline",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Streamline — complete Nuvio streaming plugin. Port of CineStream (Cloudstream) under the Streamline name: multi-source movies, series, anime and torrent aggregation running on-device.",
   "author": "Streamline",
   "scrapers": [
@@ -8,7 +8,7 @@
       "id": "streamline",
       "name": "Streamline",
       "description": "One-stop Movies, Series & Anime streams ported from CineStream: Vidlink, Videasy, Hexa, Vidzee, Vidrock, VidFast, Vidcore, VaPlayer, PrimeSrc, ShowBox, MovieBox, AllMovieLand, Cinejoy, 4KHDHub, UHDMovies, MoviesMod, MoviesDrive, VegaMovies, Bollyflix + Torrentio/TorrentsDB magnets and subtitles.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
