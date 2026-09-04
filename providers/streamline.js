@@ -2692,73 +2692,73 @@ function getStreams(tmdbId, mediaType, season, episode) {
       isBollywood
     };
     const cfg2 = settings3();
-    const concurrency = Math.max(2, Math.min(10, cfg2.concurrency || 6));
+    const concurrency = Math.max(2, Math.min(10, cfg2.concurrency || 8));
     const tasks = [
       function() {
-        return withTimeout(scrape(ctx), 25e3, "vidlink");
+        return withTimeout(scrape(ctx), 15e3, "vidlink");
       },
       function() {
-        return withTimeout(scrape2(ctx), 3e4, "videasy");
+        return withTimeout(scrape2(ctx), 15e3, "videasy");
       },
       function() {
-        return withTimeout(scrape3(ctx), 25e3, "hexa");
+        return withTimeout(scrape3(ctx), 15e3, "hexa");
       },
       function() {
-        return withTimeout(scrape4(ctx), 25e3, "vidzee");
+        return withTimeout(scrape4(ctx), 12e3, "vidzee");
       },
       function() {
-        return withTimeout(scrape5(ctx), 25e3, "vidrock");
+        return withTimeout(scrape5(ctx), 15e3, "vidrock");
       },
       function() {
-        return withTimeout(scrapeVidfast(ctx), 3e4, "vidfast");
+        return withTimeout(scrapeVidfast(ctx), 15e3, "vidfast");
       },
       function() {
-        return withTimeout(scrapeVidcore(ctx), 3e4, "vidcore");
+        return withTimeout(scrapeVidcore(ctx), 15e3, "vidcore");
       },
       function() {
-        return withTimeout(scrapeVaplayer(ctx), 2e4, "vaplayer");
+        return withTimeout(scrapeVaplayer(ctx), 12e3, "vaplayer");
       },
       function() {
-        return withTimeout(scrapePrimesrc(ctx), 2e4, "primesrc");
+        return withTimeout(scrapePrimesrc(ctx), 12e3, "primesrc");
       },
       function() {
-        return withTimeout(scrape6(ctx), 3e4, "showbox");
+        return withTimeout(scrape6(ctx), 15e3, "showbox");
       },
       function() {
-        return withTimeout(scrape7(ctx), 3e4, "moviebox");
+        return withTimeout(scrape7(ctx), 15e3, "moviebox");
       },
       function() {
-        return withTimeout(scrape8(ctx), 25e3, "allmovieland");
+        return withTimeout(scrape8(ctx), 15e3, "allmovieland");
       },
       function() {
-        return withTimeout(scrape9(ctx), 3e4, "cinejoy");
+        return withTimeout(scrape9(ctx), 15e3, "cinejoy");
       },
       function() {
-        return withTimeout(scrape4khdhub(ctx), 3e4, "4khdhub");
+        return withTimeout(scrape4khdhub(ctx), 15e3, "4khdhub");
       },
       function() {
-        return withTimeout(scrapeUhdmovies(ctx), 3e4, "uhdmovies");
+        return withTimeout(scrapeUhdmovies(ctx), 15e3, "uhdmovies");
       },
       function() {
-        return withTimeout(scrapeMoviesmod(ctx), 3e4, "moviesmod");
+        return withTimeout(scrapeMoviesmod(ctx), 15e3, "moviesmod");
       },
       function() {
-        return withTimeout(scrapeMoviesdrive(ctx), 3e4, "moviesdrive");
+        return withTimeout(scrapeMoviesdrive(ctx), 15e3, "moviesdrive");
       },
       function() {
-        return withTimeout(scrapeVegamovies(ctx), 3e4, "vegamovies");
+        return withTimeout(scrapeVegamovies(ctx), 15e3, "vegamovies");
       },
       function() {
-        return withTimeout(scrapeRogmovies(ctx), 3e4, "rogmovies");
+        return withTimeout(scrapeRogmovies(ctx), 15e3, "rogmovies");
       },
       function() {
-        return withTimeout(scrapeBollyflix(ctx), 3e4, "bollyflix");
+        return withTimeout(scrapeBollyflix(ctx), 15e3, "bollyflix");
       },
       function() {
-        return withTimeout(scrapeAnizone(ctx), 25e3, "anizone");
+        return withTimeout(scrapeAnizone(ctx), 12e3, "anizone");
       },
       function() {
-        return withTimeout(torrentSources(ctx.imdbId, seasonNum, episodeNum, isTv), 25e3, "torrents");
+        return withTimeout(torrentSources(ctx.imdbId, seasonNum, episodeNum, isTv), 12e3, "torrents");
       }
     ];
     let streams = dedupe(yield runLimited(tasks, concurrency));
@@ -2830,11 +2830,11 @@ function onSettings() {
         options: [
           { label: "2 (slow networks)", value: 2 },
           { label: "4", value: 4 },
-          { label: "6 (default)", value: 6 },
-          { label: "8", value: 8 },
+          { label: "6", value: 6 },
+          { label: "8 (default)", value: 8 },
           { label: "10 (fast networks)", value: 10 }
         ],
-        defaultValue: 6
+        defaultValue: 8
       }
     ];
   });

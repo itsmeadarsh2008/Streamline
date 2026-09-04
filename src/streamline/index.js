@@ -82,31 +82,33 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     };
 
     const cfg = settings();
-    const concurrency = Math.max(2, Math.min(10, cfg.concurrency || 6));
+    // Keep the whole fan-out comfortably inside Nuvio's ~60s execution cap:
+    // 22 sources / 8-wide waves / <=15s each ≈ <=45s worst case.
+    const concurrency = Math.max(2, Math.min(10, cfg.concurrency || 8));
 
     const tasks = [
-        function () { return withTimeout(scrapeVidlink(ctx), 25000, "vidlink"); },
-        function () { return withTimeout(scrapeVideasy(ctx), 30000, "videasy"); },
-        function () { return withTimeout(scrapeHexa(ctx), 25000, "hexa"); },
-        function () { return withTimeout(scrapeVidzee(ctx), 25000, "vidzee"); },
-        function () { return withTimeout(scrapeVidrock(ctx), 25000, "vidrock"); },
-        function () { return withTimeout(scrapeVidfast(ctx), 30000, "vidfast"); },
-        function () { return withTimeout(scrapeVidcore(ctx), 30000, "vidcore"); },
-        function () { return withTimeout(scrapeVaplayer(ctx), 20000, "vaplayer"); },
-        function () { return withTimeout(scrapePrimesrc(ctx), 20000, "primesrc"); },
-        function () { return withTimeout(scrapeShowbox(ctx), 30000, "showbox"); },
-        function () { return withTimeout(scrapeMoviebox(ctx), 30000, "moviebox"); },
-        function () { return withTimeout(scrapeAllmovieland(ctx), 25000, "allmovieland"); },
-        function () { return withTimeout(scrapeCinejoy(ctx), 30000, "cinejoy"); },
-        function () { return withTimeout(scrape4khdhub(ctx), 30000, "4khdhub"); },
-        function () { return withTimeout(scrapeUhdmovies(ctx), 30000, "uhdmovies"); },
-        function () { return withTimeout(scrapeMoviesmod(ctx), 30000, "moviesmod"); },
-        function () { return withTimeout(scrapeMoviesdrive(ctx), 30000, "moviesdrive"); },
-        function () { return withTimeout(scrapeVegamovies(ctx), 30000, "vegamovies"); },
-        function () { return withTimeout(scrapeRogmovies(ctx), 30000, "rogmovies"); },
-        function () { return withTimeout(scrapeBollyflix(ctx), 30000, "bollyflix"); },
-        function () { return withTimeout(scrapeAnizone(ctx), 25000, "anizone"); },
-        function () { return withTimeout(torrentSources(ctx.imdbId, seasonNum, episodeNum, isTv), 25000, "torrents"); }
+        function () { return withTimeout(scrapeVidlink(ctx), 15000, "vidlink"); },
+        function () { return withTimeout(scrapeVideasy(ctx), 15000, "videasy"); },
+        function () { return withTimeout(scrapeHexa(ctx), 15000, "hexa"); },
+        function () { return withTimeout(scrapeVidzee(ctx), 12000, "vidzee"); },
+        function () { return withTimeout(scrapeVidrock(ctx), 15000, "vidrock"); },
+        function () { return withTimeout(scrapeVidfast(ctx), 15000, "vidfast"); },
+        function () { return withTimeout(scrapeVidcore(ctx), 15000, "vidcore"); },
+        function () { return withTimeout(scrapeVaplayer(ctx), 12000, "vaplayer"); },
+        function () { return withTimeout(scrapePrimesrc(ctx), 12000, "primesrc"); },
+        function () { return withTimeout(scrapeShowbox(ctx), 15000, "showbox"); },
+        function () { return withTimeout(scrapeMoviebox(ctx), 15000, "moviebox"); },
+        function () { return withTimeout(scrapeAllmovieland(ctx), 15000, "allmovieland"); },
+        function () { return withTimeout(scrapeCinejoy(ctx), 15000, "cinejoy"); },
+        function () { return withTimeout(scrape4khdhub(ctx), 15000, "4khdhub"); },
+        function () { return withTimeout(scrapeUhdmovies(ctx), 15000, "uhdmovies"); },
+        function () { return withTimeout(scrapeMoviesmod(ctx), 15000, "moviesmod"); },
+        function () { return withTimeout(scrapeMoviesdrive(ctx), 15000, "moviesdrive"); },
+        function () { return withTimeout(scrapeVegamovies(ctx), 15000, "vegamovies"); },
+        function () { return withTimeout(scrapeRogmovies(ctx), 15000, "rogmovies"); },
+        function () { return withTimeout(scrapeBollyflix(ctx), 15000, "bollyflix"); },
+        function () { return withTimeout(scrapeAnizone(ctx), 12000, "anizone"); },
+        function () { return withTimeout(torrentSources(ctx.imdbId, seasonNum, episodeNum, isTv), 12000, "torrents"); }
     ];
 
     let streams = dedupe(await runLimited(tasks, concurrency));
@@ -186,11 +188,11 @@ async function onSettings() {
             options: [
                 { label: "2 (slow networks)", value: 2 },
                 { label: "4", value: 4 },
-                { label: "6 (default)", value: 6 },
-                { label: "8", value: 8 },
+                { label: "6", value: 6 },
+                { label: "8 (default)", value: 8 },
                 { label: "10 (fast networks)", value: 10 }
             ],
-            defaultValue: 6
+            defaultValue: 8
         }
     ];
 }
