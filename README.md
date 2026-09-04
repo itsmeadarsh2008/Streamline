@@ -197,6 +197,18 @@ references/CSX/             # upstream reference, not shipped to Nuvio
 4. Commit `src/`, `providers/*.js` and `manifest.json` together — Nuvio
    serves the built files, so all three must stay in sync — and open a PR.
 
+## Credits & source of inspiration
+
+Streamline is a port of **CineStream** by megix, from the upstream Cloudstream
+extensions repository:
+
+- **Source repo:** [SaurabhKaperwan/CSX](https://github.com/SaurabhKaperwan/CSX)
+  (see `references/CSX/CineStream` — provider registry, `CineStreamExtractors`
+  scrapers, `Extractors.kt` HubCloud/VCloud terminals, Stremio helpers)
+- **Nuvio provider conventions:** [yoruix/nuvio-providers](https://github.com/yoruix/nuvio-providers)
+  and the [All-in-One-Nuvio](https://github.com/NuvioPlugin/All-in-One-Nuvio)
+  collection (per-source layout, rich result rows)
+
 ## Legal
 
 Streamline ships no content and hosts nothing. Like the upstream project, each
