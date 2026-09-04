@@ -228,16 +228,20 @@ export async function resolveHubcloud(url, sourceName) {
         // Full release blob -> rich metadata block (quality/size/HDR/codec/
         // Atmos/language/source), All-in-One style. No giant file is ever
         // dropped; the size label lets you pick to taste.
-        function push(u, label) {
-            const container = /\.m3u8/i.test(u) ? "HLS" : /\.mp4/i.test(u) ? "MP4" : /\.mkv/i.test(u) ? "MKV" : (blobMeta.container || "VIDEO");
+        // `server` (FSL/Pixeldrain/10Gbps/Buzz/…) is shown in the name badge
+        // AND as a 🖥️ line in the full description.
+        function push(u, server) {
+            const container = /\.m3u8/i.test(u) ? "HLS" : /\.mp4/i.test(u) ? "MP4" : /\.mkv/i.test(u) ? "MKV" : "VIDEO";
             const meta = parseMeta(header + " " + size + " " + u);
+            if (!meta.container) meta.container = container;
             const rt = richTitle(name, "🎬 " + header + (size ? " [" + size + "]" : ""), meta, container);
+            const title = server ? rt.text + "\n🖥️ " + server : rt.text;
             const s = makeStream(
-                richName(name + (label ? " " + label : ""), meta),
-                rt.text,
+                server ? richName(name + " [" + server + "]", meta) : richName(name, meta),
+                title,
                 u,
                 meta.quality === "Auto" ? parseQuality(header) : meta.quality,
-                { "User-Agent": UA },
+                { "User-Agent": UA, Referer: link },
                 [],
                 { size: meta.size, language: meta.lang ? meta.lang.split(" + ")[0] : undefined }
             );
@@ -249,41 +253,85 @@ export async function resolveHubcloud(url, sourceName) {
             }
         }
 
-        const btns = $2("h2 a.btn").toArray();
-        for (const el of btns) {
+        // 1-byte playability probe: expired single-use links (Access Denied)
+        // are dropped so listed rows actually play.
+        async function probeOk(u) {
             try {
-                const href = $2(el).attr("href") || "";
-                const text = $2(el).text() || "";
-                if (/FSL Server|FSLv2|Mega Server|Download File/.test(text)) {
-                    if (href) push(href, "");
-                } else if (href.indexOf("pixeldra") !== -1) {
-                    const pxl = extractPxlUrl(page2);
-                    if (pxl) {
-                        const b = getBaseUrl(pxl);
-                        push(/download/i.test(pxl) ? pxl : b + "/api/file/" + pxl.split("/").pop() + "?download", "[Pixeldrain]");
-                    }
-                } else if (/Server : 10Gbps/.test(text)) {
-                    try {
-                        const r = await fetch(href, { redirect: "follow", headers: { "User-Agent": UA } });
-                        let finalUrl = r.url || "";
-                        if (finalUrl.indexOf("link=") !== -1) finalUrl = finalUrl.split("link=")[1];
-                        if (finalUrl) push(finalUrl, "[Download]");
-                    } catch (e) { /* skip */ }
-                } else if (/Buzz Server/.test(text)) {
-                    try {
-                        const bHtml = await fetchText(href, {}, 15000);
-                        const $b = cheerio.load(bHtml);
-                        const dl = $b(".download-btn").attr("href");
-                        if (dl) push(getBaseUrl(href) + dl, "[Buzz]");
-                    } catch (e) { /* skip */ }
-                } else if (/Gofile/i.test(text)) {
-                    const g = await resolveGofile(href);
-                    if (g) push(g.url, "[Gofile]");
+                const res = await fetch(u, {
+                    redirect: "follow",
+                    headers: { "User-Agent": UA, Referer: link, Range: "bytes=0-0" }
+                });
+                if (res.status === 206 || res.status === 200) {
+                    try { await res.text(); } catch (e) { /* tiny body, ignore */ }
+                    return true;
                 }
+            } catch (e) { /* dead link */ }
+            return false;
+        }
+
+        // Follow redirects to a fresh-signed URL (Range-capped, body unread).
+        async function resolveFinal(u) {
+            try {
+                const r = await fetch(u, {
+                    redirect: "follow",
+                    headers: { "User-Agent": UA, Referer: link, Range: "bytes=0-0" }
+                });
+                let finalUrl = r.url || u;
+                if (finalUrl.indexOf("link=") !== -1) finalUrl = finalUrl.split("link=")[1];
+                return finalUrl || u;
             } catch (e) {
-                continue;
+                return u;
             }
         }
+
+        const btns = $2("h2 a.btn").toArray();
+        const cands = [];
+        for (const el of btns) {
+            const href = $2(el).attr("href") || "";
+            const text = $2(el).text() || "";
+            if (!href) continue;
+            if (/FSL Server|FSLv2|Mega Server|Download File/.test(text)) {
+                cands.push({
+                    href: href,
+                    server: /FSLv2/.test(text) ? "FSLv2" : /Mega/.test(text) ? "Mega" : /Download File/.test(text) ? "Download" : "FSL"
+                });
+            } else if (href.indexOf("pixeldra") !== -1) {
+                const pxl = extractPxlUrl(page2);
+                if (pxl) {
+                    const b = getBaseUrl(pxl);
+                    cands.push({
+                        href: /download/i.test(pxl) ? pxl : b + "/api/file/" + pxl.split("/").pop() + "?download",
+                        server: "Pixeldrain",
+                        direct: true
+                    });
+                }
+            } else if (/Server : 10Gbps/.test(text)) {
+                cands.push({ href: href, server: "10Gbps" });
+            } else if (/Buzz Server/.test(text)) {
+                try {
+                    const bHtml = await fetchText(href, {}, 15000);
+                    const $b = cheerio.load(bHtml);
+                    const dl = $b(".download-btn").attr("href");
+                    if (dl) cands.push({ href: getBaseUrl(href) + dl, server: "Buzz", direct: true });
+                } catch (e) { /* skip */ }
+            } else if (/Gofile/i.test(text)) {
+                const g = await resolveGofile(href);
+                if (g && g.url) cands.push({ href: g.url, server: "Gofile", direct: true });
+            }
+        }
+        // Resolve indirect links, then probe everything in parallel and
+        // keep only rows that actually play.
+        const probed = await Promise.all(cands.map(async function (c) {
+            try {
+                const url = c.direct ? c.href : await resolveFinal(c.href);
+                return { server: c.server, url: url, ok: await probeOk(url) };
+            } catch (e) {
+                return { server: c.server, url: "", ok: false };
+            }
+        }));
+        probed.forEach(function (p) {
+            if (p.ok && p.url) push(p.url, p.server);
+        });
     } catch (e) {
         console.log("[Streamline][hubcloud] " + e.message);
     }

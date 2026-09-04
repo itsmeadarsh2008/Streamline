@@ -822,16 +822,19 @@ function resolveHubcloud(url, sourceName) {
     const name = sourceName || "HubCloud";
     const out = [];
     try {
-      let push = function(u, label) {
-        const container = /\.m3u8/i.test(u) ? "HLS" : /\.mp4/i.test(u) ? "MP4" : /\.mkv/i.test(u) ? "MKV" : blobMeta.container || "VIDEO";
+      let push = function(u, server) {
+        const container = /\.m3u8/i.test(u) ? "HLS" : /\.mp4/i.test(u) ? "MP4" : /\.mkv/i.test(u) ? "MKV" : "VIDEO";
         const meta = parseMeta(header + " " + size + " " + u);
+        if (!meta.container)
+          meta.container = container;
         const rt = richTitle(name, "\u{1F3AC} " + header + (size ? " [" + size + "]" : ""), meta, container);
+        const title = server ? rt.text + "\n\u{1F5A5}\uFE0F " + server : rt.text;
         const s = makeStream(
-          richName(name + (label ? " " + label : ""), meta),
-          rt.text,
+          server ? richName(name + " [" + server + "]", meta) : richName(name, meta),
+          title,
           u,
           meta.quality === "Auto" ? parseQuality(header) : meta.quality,
-          { "User-Agent": UA },
+          { "User-Agent": UA, Referer: link },
           [],
           { size: meta.size, language: meta.lang ? meta.lang.split(" + ")[0] : void 0 }
         );
@@ -871,48 +874,94 @@ function resolveHubcloud(url, sourceName) {
       const $2 = import_cheerio_without_node_native.default.load(page2);
       const header = $2("div.card-header").text().trim();
       const size = $2("i#size").text().trim();
-      const btns = $2("h2 a.btn").toArray();
-      for (const el of btns) {
-        try {
-          const href = $2(el).attr("href") || "";
-          const text = $2(el).text() || "";
-          if (/FSL Server|FSLv2|Mega Server|Download File/.test(text)) {
-            if (href)
-              push(href, "");
-          } else if (href.indexOf("pixeldra") !== -1) {
-            const pxl = extractPxlUrl(page2);
-            if (pxl) {
-              const b = getBaseUrl(pxl);
-              push(/download/i.test(pxl) ? pxl : b + "/api/file/" + pxl.split("/").pop() + "?download", "[Pixeldrain]");
+      function probeOk(u) {
+        return __async(this, null, function* () {
+          try {
+            const res = yield fetch(u, {
+              redirect: "follow",
+              headers: { "User-Agent": UA, Referer: link, Range: "bytes=0-0" }
+            });
+            if (res.status === 206 || res.status === 200) {
+              try {
+                yield res.text();
+              } catch (e) {
+              }
+              return true;
             }
-          } else if (/Server : 10Gbps/.test(text)) {
-            try {
-              const r = yield fetch(href, { redirect: "follow", headers: { "User-Agent": UA } });
-              let finalUrl = r.url || "";
-              if (finalUrl.indexOf("link=") !== -1)
-                finalUrl = finalUrl.split("link=")[1];
-              if (finalUrl)
-                push(finalUrl, "[Download]");
-            } catch (e) {
-            }
-          } else if (/Buzz Server/.test(text)) {
-            try {
-              const bHtml = yield fetchText(href, {}, 15e3);
-              const $b = import_cheerio_without_node_native.default.load(bHtml);
-              const dl = $b(".download-btn").attr("href");
-              if (dl)
-                push(getBaseUrl(href) + dl, "[Buzz]");
-            } catch (e) {
-            }
-          } else if (/Gofile/i.test(text)) {
-            const g = yield resolveGofile(href);
-            if (g)
-              push(g.url, "[Gofile]");
+          } catch (e) {
           }
-        } catch (e) {
+          return false;
+        });
+      }
+      function resolveFinal(u) {
+        return __async(this, null, function* () {
+          try {
+            const r = yield fetch(u, {
+              redirect: "follow",
+              headers: { "User-Agent": UA, Referer: link, Range: "bytes=0-0" }
+            });
+            let finalUrl = r.url || u;
+            if (finalUrl.indexOf("link=") !== -1)
+              finalUrl = finalUrl.split("link=")[1];
+            return finalUrl || u;
+          } catch (e) {
+            return u;
+          }
+        });
+      }
+      const btns = $2("h2 a.btn").toArray();
+      const cands = [];
+      for (const el of btns) {
+        const href = $2(el).attr("href") || "";
+        const text = $2(el).text() || "";
+        if (!href)
           continue;
+        if (/FSL Server|FSLv2|Mega Server|Download File/.test(text)) {
+          cands.push({
+            href,
+            server: /FSLv2/.test(text) ? "FSLv2" : /Mega/.test(text) ? "Mega" : /Download File/.test(text) ? "Download" : "FSL"
+          });
+        } else if (href.indexOf("pixeldra") !== -1) {
+          const pxl = extractPxlUrl(page2);
+          if (pxl) {
+            const b = getBaseUrl(pxl);
+            cands.push({
+              href: /download/i.test(pxl) ? pxl : b + "/api/file/" + pxl.split("/").pop() + "?download",
+              server: "Pixeldrain",
+              direct: true
+            });
+          }
+        } else if (/Server : 10Gbps/.test(text)) {
+          cands.push({ href, server: "10Gbps" });
+        } else if (/Buzz Server/.test(text)) {
+          try {
+            const bHtml = yield fetchText(href, {}, 15e3);
+            const $b = import_cheerio_without_node_native.default.load(bHtml);
+            const dl = $b(".download-btn").attr("href");
+            if (dl)
+              cands.push({ href: getBaseUrl(href) + dl, server: "Buzz", direct: true });
+          } catch (e) {
+          }
+        } else if (/Gofile/i.test(text)) {
+          const g = yield resolveGofile(href);
+          if (g && g.url)
+            cands.push({ href: g.url, server: "Gofile", direct: true });
         }
       }
+      const probed = yield Promise.all(cands.map(function(c) {
+        return __async(this, null, function* () {
+          try {
+            const url2 = c.direct ? c.href : yield resolveFinal(c.href);
+            return { server: c.server, url: url2, ok: yield probeOk(url2) };
+          } catch (e) {
+            return { server: c.server, url: "", ok: false };
+          }
+        });
+      }));
+      probed.forEach(function(p) {
+        if (p.ok && p.url)
+          push(p.url, p.server);
+      });
     } catch (e) {
       console.log("[Streamline][hubcloud] " + e.message);
     }
