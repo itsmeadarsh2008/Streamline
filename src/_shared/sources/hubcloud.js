@@ -6,6 +6,7 @@
 import cheerio from 'cheerio-without-node-native';
 import { UA } from '../constants.js';
 import { b64DecodeUtf8, fetchText, makeStream, parseQuality } from '../utils.js';
+import { parseMeta, enrichStream, richName, richTitle } from '../meta.js';
 
 export function getBaseUrl(url) {
     try {
@@ -224,11 +225,28 @@ export async function resolveHubcloud(url, sourceName) {
         const $2 = cheerio.load(page2);
         const header = $2("div.card-header").text().trim();
         const size = $2("i#size").text().trim();
-        const quality = parseQuality(header);
-
+        // Full release blob -> rich metadata block (quality/size/HDR/codec/
+        // Atmos/language/source), All-in-One style. No giant file is ever
+        // dropped; the size label lets you pick to taste.
         function push(u, label) {
-            const s = makeStream(name, name + " " + header + " [" + size + "]" + (label ? " " + label : ""), u, quality, { "User-Agent": UA }, []);
-            if (s) out.push(s);
+            const container = /\.m3u8/i.test(u) ? "HLS" : /\.mp4/i.test(u) ? "MP4" : /\.mkv/i.test(u) ? "MKV" : (blobMeta.container || "VIDEO");
+            const meta = parseMeta(header + " " + size + " " + u);
+            const rt = richTitle(name, "🎬 " + header + (size ? " [" + size + "]" : ""), meta, container);
+            const s = makeStream(
+                richName(name + (label ? " " + label : ""), meta),
+                rt.text,
+                u,
+                meta.quality === "Auto" ? parseQuality(header) : meta.quality,
+                { "User-Agent": UA },
+                [],
+                { size: meta.size, language: meta.lang ? meta.lang.split(" + ")[0] : undefined }
+            );
+            if (s) {
+                s._rank = meta.rank;
+                s._sizeMB = meta.sizeMB;
+                s._rich = true;
+                out.push(s);
+            }
         }
 
         const btns = $2("h2 a.btn").toArray();
@@ -279,11 +297,13 @@ export async function resolveSourceLink(source, url) {
     if (/hubcloud\.|vcloud\./i.test(u)) return await resolveHubcloud(u, source);
     if (/gofile\.io\/d\//i.test(u)) {
         const g = await resolveGofile(u);
-        return g && g.url ? [makeStream(source, source + " [Gofile] " + g.name, g.url, parseQuality(g.name), {}, [])].filter(Boolean) : [];
+        if (!g || !g.url) return [];
+        const s = makeStream(source, source + " [Gofile] " + g.name, g.url, parseQuality(g.name), {}, []);
+        return s ? [enrichStream(s, g.name + " " + g.url, null)] : [];
     }
     if (/\.(mp4|mkv|m3u8)(\?|$)/i.test(u)) {
         const s = makeStream(source, source + " - " + parseQuality(u), u, parseQuality(u), { "User-Agent": UA }, []);
-        return s ? [s] : [];
+        return s ? [enrichStream(s, u, null)] : [];
     }
     return [];
 }

@@ -6,17 +6,18 @@
  */
 import { buildCtx } from '../_shared/tmdb.js';
 import { dedupe, withTimeout } from '../_shared/utils.js';
+import { presentStreams } from '../_shared/meta.js';
 import { torrentSources } from '../_shared/torrents.js';
 
 async function getStreams(tmdbId, mediaType, season, episode) {
     try {
         const ctx = await buildCtx(tmdbId, mediaType, season, episode);
         const out = await withTimeout(
-            torrentSources(ctx.imdbId, ctx.season, ctx.episode, ctx.isTv),
+            torrentSources(ctx.imdbId, ctx.season, ctx.episode, ctx.isTv, ctx),
             20000,
             "torrents"
         );
-        return dedupe(out);
+        return presentStreams(dedupe(out), ctx);
     } catch (e) {
         console.log("[Streamline][torrents] " + (e && e.message));
         return [];

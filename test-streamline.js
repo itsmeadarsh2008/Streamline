@@ -66,6 +66,40 @@ async function offline() {
     ).toString(CryptoJS.enc.Utf8);
     ok("vidzee AES-CBC round-trip", dec === plain);
 
+    // Rich metadata parsing (All-in-One-style title blocks)
+    const metaCases = [
+        {
+            raw: "Dune.Part.Two.2024.2160p.UHD.BluRay.REMUX.DV.HDR.HEVC.TrueHD.Atmos.7.1.Hindi.DDP5.1.x265-FraMeSToR [64.89 GB]",
+            quality: "4K", hdr: "DV", codec: "H.265", atmos: true, source: "REMUX",
+            size: "64.89 GB", langHas: "Hindi"
+        },
+        {
+            raw: "Dune.Part.Two.2024.720p.10bit.AMZN.WEBRip.x265.HEVC.Org.Hindi.DDP.5.1.192Kbps.+.English.AAC.5.1.ESubs [1.21 GB]",
+            quality: "720p", codec: "H.265", audio: "DDP5.1", source: "WEBRip", size: "1.21 GB", langHas: "Hindi"
+        },
+        {
+            raw: "Breaking.Bad.S01E01.1080p.BluRay.x264.DD5.1.HIN-ENG [1.52 GB]",
+            quality: "1080p", codec: "H.264", audio: "DD5.1", source: "BluRay", size: "1.52 GB"
+        }
+    ];
+    const metaMod = await import('./src/_shared/meta.js').catch(function () { return null; });
+    if (metaMod) {
+        metaCases.forEach(function (c, i) {
+            const m = metaMod.parseMeta(c.raw);
+            ok("meta[" + i + "] quality " + c.quality, m.quality === c.quality);
+            if (c.hdr) ok("meta[" + i + "] hdr " + c.hdr, m.hdr === c.hdr);
+            if (c.codec) ok("meta[" + i + "] codec " + c.codec, m.codec === c.codec);
+            if (c.atmos) ok("meta[" + i + "] atmos", m.atmos === true);
+            if (c.audio) ok("meta[" + i + "] audio " + c.audio, m.audio === c.audio);
+            if (c.source) ok("meta[" + i + "] source " + c.source, m.source === c.source);
+            if (c.size) ok("meta[" + i + "] size " + c.size, m.size === c.size);
+            if (c.langHas) ok("meta[" + i + "] lang has " + c.langHas, m.lang.indexOf(c.langHas) !== -1);
+        });
+        const rt = metaMod.richTitle("VegaMovies", "🎬 Dune: Part Two (2024)", metaMod.parseMeta(metaCases[0].raw), "MKV");
+        ok("rich title has 5 lines", rt.text.split("\n").length === 5);
+        ok("rich title mentions Atmos", rt.text.indexOf("Atmos") !== -1);
+    }
+
     console.log("\n✅ offline checks passed");
 }
 

@@ -5,6 +5,7 @@
  */
 import { buildCtx } from '../_shared/tmdb.js';
 import { dedupe, withTimeout } from '../_shared/utils.js';
+import { presentStreams } from '../_shared/meta.js';
 import { withSharedSubs, wyzieKeyField } from '../_shared/subs.js';
 import { scrape4khdhub } from '../_shared/sources/indian.js';
 
@@ -12,7 +13,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     try {
         const ctx = await buildCtx(tmdbId, mediaType, season, episode);
         const out = await withTimeout(scrape4khdhub(ctx), 20000, "4khdhub");
-        return dedupe(await withSharedSubs(out, ctx));
+        return presentStreams(dedupe(await withSharedSubs(out, ctx)), ctx);
     } catch (e) {
         console.log("[Streamline][4khdhub] " + (e && e.message));
         return [];

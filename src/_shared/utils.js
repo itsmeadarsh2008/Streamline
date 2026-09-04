@@ -107,11 +107,11 @@ export function formatOf(url) {
 }
 
 /** Normalize a Nuvio stream object (mirrors DOCUMENTATION.md output format). */
-export function makeStream(source, title, url, quality, headers, subtitles) {
+export function makeStream(source, title, url, quality, headers, subtitles, extra) {
     if (!url) return null;
     const u = String(url);
     if (u.indexOf("http") !== 0 && u.indexOf("magnet:?") !== 0) return null;
-    return {
+    const stream = {
         name: source,
         title: title || source,
         url: u,
@@ -119,6 +119,13 @@ export function makeStream(source, title, url, quality, headers, subtitles) {
         headers: headers || {},
         subtitles: subtitles || []
     };
+    // Optional Nuvio result fields (size, language, seeders, infoHash…).
+    if (extra) {
+        Object.keys(extra).forEach(function (k) {
+            if (extra[k] !== undefined && extra[k] !== null && extra[k] !== "") stream[k] = extra[k];
+        });
+    }
+    return stream;
 }
 
 export function normalizeTitle(s) {

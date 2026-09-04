@@ -4,7 +4,8 @@
  * integration (Torbox/Premiumize) can resolve them on-device.
  */
 import { TORRENTIO_API, TORRENTSDB_API } from './constants.js';
-import { fetchText, makeStream, parseQuality } from './utils.js';
+import { fetchText, makeStream } from './utils.js';
+import { headline, parseMeta, richTitle, seasonEpCode } from './meta.js';
 
 function settings() {
     try {
@@ -23,44 +24,55 @@ function buildMagnet(infoHash, fileIdx, trackers) {
     return magnet;
 }
 
-function parseTitleMeta(title) {
-    const t = String(title || "");
-    const seedM = t.match(/[👤👥]\s*(\d+)/);
-    const sizeM = t.match(/💾\s*([0-9.]+\s*[A-Za-z]+)/);
-    return {
-        seeders: seedM ? parseInt(seedM[1], 10) : 0,
-        size: sizeM ? sizeM[1] : ""
-    };
-}
-
-async function stremioTorrents(sourceName, api, imdbId, season, episode, isTv) {
+async function stremioTorrents(sourceName, api, ctx) {
+    const imdbId = ctx.imdbId, season = ctx.season, episode = ctx.episode, isTv = ctx.isTv;
     const path = !isTv
         ? "/stream/movie/" + imdbId + ".json"
         : "/stream/series/" + imdbId + ":" + season + ":" + episode + ".json";
     const json = JSON.parse(await fetchText(api + path, {}, 20000));
     const streams = (json && json.streams) || [];
+    const line1 = (ctx.title || ctx.originalTitle)
+        ? headline(ctx.originalTitle || ctx.title, isTv ? null : ctx.year,
+            isTv ? seasonEpCode(season, episode) : "")
+        : null;
     const out = [];
     streams.forEach(function (s) {
         if (!s || !s.infoHash) return;
         const label = s.title || s.description || s.name || "";
-        const meta = parseTitleMeta(label);
-        if (meta.seeders && meta.seeders < 20) return; // CineStream drops <25; be a touch lenient
-        const magnet = buildMagnet(s.infoHash, s.fileIdx, s.sources);
-        const quality = parseQuality(s.name || label);
+        const seedM = String(label).match(/[👤👥]\s*(\d+)/);
+        const seeders = seedM ? parseInt(seedM[1], 10) : 0;
+        if (seeders && seeders < 20) return; // CineStream drops <25; be a touch lenient
+        // Full metadata block: quality, size, HDR, codec, DV, audio+Atmos,
+        // language, source — nothing filtered, giant REMUX kept.
+        const meta = parseMeta(label + " " + (s.name || ""));
+        const rt = richTitle(sourceName, line1 || ("🎬 " + label.split("\n")[0].slice(0, 80)), meta, "MKV");
         const stream = makeStream(
-            sourceName,
-            sourceName + " | " + quality + (meta.size ? " | " + meta.size : "") + " | S" + meta.seeders,
-            magnet,
-            quality,
-            {}
+            sourceName + " 👥" + seeders + " ⬆️" + meta.quality,
+            rt.text,
+            buildMagnet(s.infoHash, s.fileIdx, s.sources),
+            meta.quality === "Auto" ? "Auto" : meta.quality,
+            {},
+            [],
+            {
+                size: meta.size || undefined,
+                language: meta.lang ? meta.lang.split(" + ")[0] : undefined,
+                seeders: seeders || undefined,
+                infoHash: s.infoHash
+            }
         );
-        if (stream) out.push(stream);
+        if (stream) {
+            stream._rank = meta.rank;
+            stream._sizeMB = meta.sizeMB;
+            stream._rich = true;
+            out.push(stream);
+        }
     });
     return out;
 }
 
-export async function torrentSources(imdbId, season, episode, isTv) {
+export async function torrentSources(imdbId, season, episode, isTv, ctx) {
     if (!imdbId) return [];
+    const full = ctx || { imdbId: imdbId, season: season, episode: episode, isTv: isTv };
     const cfg = settings();
     if (cfg.enableTorrents === false) return [];
     const jobs = [];
@@ -68,7 +80,7 @@ export async function torrentSources(imdbId, season, episode, isTv) {
         jobs.push(
             (async function () {
                 try {
-                    return await stremioTorrents("Torrentio", TORRENTIO_API, imdbId, season, episode, isTv);
+                    return await stremioTorrents("Torrentio", TORRENTIO_API, full);
                 } catch (e) {
                     console.log("[Streamline][torrentio] " + e.message);
                     return [];
@@ -80,7 +92,7 @@ export async function torrentSources(imdbId, season, episode, isTv) {
         jobs.push(
             (async function () {
                 try {
-                    return await stremioTorrents("TorrentsDB", TORRENTSDB_API, imdbId, season, episode, isTv);
+                    return await stremioTorrents("TorrentsDB", TORRENTSDB_API, full);
                 } catch (e) {
                     console.log("[Streamline][torrentsdb] " + e.message);
                     return [];

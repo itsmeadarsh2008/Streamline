@@ -4,12 +4,14 @@
  */
 import { buildCtx } from '../_shared/tmdb.js';
 import { dedupe, withTimeout } from '../_shared/utils.js';
+import { presentStreams } from '../_shared/meta.js';
 import { scrape } from '../_shared/sources/videasy.js';
 
 async function getStreams(tmdbId, mediaType, season, episode) {
     try {
         const ctx = await buildCtx(tmdbId, mediaType, season, episode);
-        return dedupe(await withTimeout(scrape(ctx), 20000, "videasy"));
+        const out = await withTimeout(scrape(ctx), 20000, "videasy");
+        return presentStreams(dedupe(out), ctx);
     } catch (e) {
         console.log("[Streamline][videasy] " + (e && e.message));
         return [];
