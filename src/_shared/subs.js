@@ -72,3 +72,27 @@ export function attachSubtitles(streams, subtitles) {
         return copy;
     });
 }
+
+/** Fetch + attach shared subtitles (Stremio backends + Wyzie) in one call. */
+export async function withSharedSubs(streams, ctx) {
+    try {
+        if (!ctx || !ctx.imdbId) return streams;
+        const subs = (await stremioSubtitles(ctx.imdbId, ctx.season, ctx.episode, ctx.isTv)).concat(
+            await wyzieSubtitles(ctx.imdbId, ctx.season, ctx.episode, ctx.isTv)
+        );
+        return attachSubtitles(streams, subs);
+    } catch (e) {
+        return streams;
+    }
+}
+
+/** Wyzie key field for provider settings screens that use shared subs. */
+export function wyzieKeyField() {
+    return {
+        type: "text",
+        key: "wyzieKey",
+        label: "Wyzie subtitles key",
+        placeholder: "Optional Wyzie API key",
+        description: "Extra subtitles alongside the built-in Stremio ones."
+    };
+}

@@ -188,6 +188,18 @@ export function withTimeout(promise, ms, label) {
     ]);
 }
 
+/** De-duplicate streams by URL (providers occasionally repeat hosts). */
+export function dedupe(streams) {
+    const seen = {};
+    const out = [];
+    (streams || []).forEach(function (s) {
+        if (!s || !s.url || seen[s.url]) return;
+        seen[s.url] = true;
+        out.push(s);
+    });
+    return out;
+}
+
 /** Base64 helpers that work in Hermes/QuickJS (no Buffer/atob assumed). */
 export function b64DecodeToBytes(b64) {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";

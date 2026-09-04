@@ -47,3 +47,26 @@ export async function fetchTmdbMeta(tmdbId, mediaType) {
         return { title: "", originalTitle: "", year: null, imdbId: null, tmdbId: null, countries: [] };
     }
 }
+
+/**
+ * Build the scraper context every provider wrapper needs:
+ * TMDB meta + Bollywood flag (Vega vs Rog routing) + sane season/episode.
+ */
+export async function buildCtx(tmdbId, mediaType, season, episode) {
+    const isTv = mediaType === "tv";
+    const meta = await fetchTmdbMeta(String(tmdbId), mediaType);
+    const countries = meta.countries || [];
+    return {
+        tmdbId: meta.tmdbId || parseInt(tmdbId, 10) || null,
+        imdbId: meta.imdbId,
+        title: meta.title,
+        originalTitle: meta.originalTitle,
+        year: meta.year,
+        season: season != null ? season : 1,
+        episode: episode != null ? episode : 1,
+        isTv: isTv,
+        isBollywood: countries.some(function (c) {
+            return /india|\bIN\b/i.test(String(c));
+        })
+    };
+}

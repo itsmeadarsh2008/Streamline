@@ -37,7 +37,7 @@ function getProvidersToBuild() {
         process.exit(1);
     }
     return fs.readdirSync(srcDir, { withFileTypes: true })
-        .filter(d => d.isDirectory())
+        .filter(d => d.isDirectory() && d.name[0] !== '_') // _shared is a library, not a provider
         .map(d => d.name);
 }
 
