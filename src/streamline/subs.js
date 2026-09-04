@@ -1,0 +1,74 @@
+/**
+ * Subtitle aggregation. Port of CineStream `invokeStremioSubtitles()` and
+ * `invokeWYZIESubs()` — subtitles are attached to streams Nuvio-side.
+ */
+import { STREMIO_SUBS, WYZIE_API } from './constants.js';
+import { fetchText } from './utils.js';
+
+function settings() {
+    try {
+        return globalThis.SCRAPER_SETTINGS || {};
+    } catch (e) {
+        return {};
+    }
+}
+
+export async function stremioSubtitles(imdbId, season, episode, isTv) {
+    const out = [];
+    if (!imdbId) return out;
+    const path = isTv
+        ? "/subtitles/series/" + imdbId + ":" + season + ":" + episode + ".json"
+        : "/subtitles/movie/" + imdbId + ".json";
+    const jobs = STREMIO_SUBS.map(function (base) {
+        return (async function () {
+            try {
+                const json = JSON.parse(await fetchText(base + path, {}, 12000));
+                const list = (json && json.subtitles) || [];
+                list.slice(0, 12).forEach(function (s) {
+                    if (!s || !s.url) return;
+                    out.push({
+                        url: s.url,
+                        language: s.lang || s.lang_code || "en",
+                        name: (s.title || s.lang || "Subtitle") + " [Stremio]"
+                    });
+                });
+            } catch (e) {
+                console.log("[Streamline][subs] " + base + ": " + e.message);
+            }
+        })();
+    });
+    await Promise.all(jobs);
+    return out;
+}
+
+export async function wyzieSubtitles(imdbId, season, episode, isTv) {
+    const key = settings().wyzieKey;
+    if (!key || !imdbId) return [];
+    const url = isTv
+        ? WYZIE_API + "/search?id=" + imdbId + "&season=" + season + "&episode=" + episode + "&source=all&key=" + key
+        : WYZIE_API + "/search?id=" + imdbId + "&source=all&key=" + key;
+    try {
+        const list = JSON.parse(await fetchText(url, {}, 12000));
+        return (Array.isArray(list) ? list : []).slice(0, 12).map(function (s) {
+            return {
+                url: s.url,
+                language: s.language || "en",
+                name: (s.display || s.language || "Subtitle") + " [Wyzie]"
+            };
+        });
+    } catch (e) {
+        console.log("[Streamline][wyzie] " + e.message);
+        return [];
+    }
+}
+
+/** Attach shared subtitles to streams that came back without any. */
+export function attachSubtitles(streams, subtitles) {
+    if (!subtitles || !subtitles.length) return streams;
+    return streams.map(function (s) {
+        if (s.subtitles && s.subtitles.length) return s;
+        const copy = Object.assign({}, s);
+        copy.subtitles = subtitles.slice(0, 8);
+        return copy;
+    });
+}
