@@ -1,6 +1,5 @@
 /**
- * streamline - Built from src/streamline/
- * Generated: 2026-09-04T11:29:12.723Z
+ * streamline - Built from src/streamline/ (run bun build.js to regenerate)
  */
 var __create = Object.create;
 var __defProp = Object.defineProperty;

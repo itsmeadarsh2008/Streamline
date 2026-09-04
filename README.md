@@ -61,13 +61,13 @@ manifest URL with the name `Streamline`, save, and let it sync to your devices.
 **Option C — Local testing (Plugin Tester)**
 
 ```bash
-npm run serve   # serves manifest.json + providers/ on :3000
+bun run serve   # serves manifest.json + providers/ on :3000
 ```
 
 In a Nuvio development build go to **Settings → Developer → Plugin Tester**,
 load `http://<your-LAN-IP>:3000/manifest.json` (Repo Tester) or
 `http://<your-LAN-IP>:3000/providers/streamline.js` (Individual Plugin), and
-iterate with `node build.js streamline`.
+iterate with `bun build.js streamline`.
 
 ## Sources
 
@@ -125,13 +125,15 @@ Indian mirrors, torrents), then:
 ## Develop
 
 ```bash
-npm install            # esbuild + runtime deps (cheerio, crypto-js)
-node build.js          # build all providers: src/<id>/ -> providers/<id>.js
-node build.js streamline
-npm test               # 13 offline tests: exports, settings, manifest,
-                       # Hermes-safety, AES-CBC/GCM round-trips
-LIVE=1 npm test        # + live movie + TV checks against real sources
-npm run serve          # static server for the in-app Plugin Tester
+bun install              # esbuild + runtime deps (cheerio, crypto-js)
+bun build.js             # build all providers: src/<id>/ -> providers/<id>.js
+bun build.js streamline
+bun run test             # 13 offline tests: exports, settings, manifest,
+                         # Hermes-safety, AES-CBC/GCM round-trips
+                         # (use `bun run test`, not `bun test` — the latter
+                         # invokes Bun's own test runner)
+LIVE=1 bun run test      # + live movie + TV checks against real sources
+bun run serve            # static server for the in-app Plugin Tester
 ```
 
 Rules that keep the bundle working in Nuvio:
@@ -162,9 +164,9 @@ references/CSX/             # upstream reference, not shipped to Nuvio
 
 ### Verified behavior
 
-- `node build.js streamline` → 90 KB bundle, zero raw `await` (esbuild
+- `bun build.js streamline` → 90 KB bundle, zero raw `await` (esbuild
   `__async` generators), `getStreams` + `onSettings` exported.
-- `npm test` → 13/13 offline tests green.
+- `bun run test` → 13/13 offline tests green.
 - Live (run pre-release): 35 streams for a TMDB movie across Vidlink,
   Videasy, Vidfast, VaPlayer, MovieBox, 4KHDHub and VegaMovies; 10 for a TV
   S01E01 via Hexa and Vidfast.
@@ -187,7 +189,7 @@ references/CSX/             # upstream reference, not shipped to Nuvio
 1. Fork, create a branch, add or fix a module under `src/streamline/sources/`
    (keep the `scrape(ctx) → streams[]` shape and fail-soft contract).
 2. Register toggles in `onSettings` if you add a source.
-3. Run `node build.js streamline` and `npm test` (plus `LIVE=1 npm test` if
+3. Run `bun build.js streamline` and `bun run test` (plus `LIVE=1 bun run test` if
    you touched network code).
 4. Commit `src/`, `providers/streamline.js` and `manifest.json` together —
    Nuvio serves the built file, so all three must stay in sync — and open a PR.

@@ -1,0 +1,45 @@
+name: Streamline CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Validate manifest
+        run: >
+          bun -e "
+          const fs = require('fs');
+          const m = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+          if (!Array.isArray(m.scrapers) || !m.scrapers.length) throw new Error('no scrapers');
+          for (const s of m.scrapers) {
+            if (!s.id || !s.filename) throw new Error('scraper missing id/filename');
+            if (!fs.existsSync(s.filename)) throw new Error('missing file: ' + s.filename);
+          }
+          console.log('manifest OK:', m.scrapers.map(s => s.id).join(', '));
+          "
+
+      - name: Build providers
+        run: bun build.js streamline
+
+      - name: Offline tests
+        run: bun test-streamline.js
+
+      - name: Bundle in sync
+        run: >
+          git diff --exit-code -- providers/ manifest.json ||
+          (echo '::error::providers/ is stale — run `bun build.js streamline` and commit the result' && exit 1)

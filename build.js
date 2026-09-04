@@ -63,7 +63,8 @@ async function buildProvider(providerName) {
             sourcemap: false,
             external: EXTERNAL_MODULES,
             banner: {
-                js: `/**\n * ${providerName} - Built from src/${providerName}/\n * Generated: ${new Date().toISOString()}\n */`
+                // No timestamps: builds must be byte-identical for the CI sync check.
+                js: `/**\n * ${providerName} - Built from src/${providerName}/ (run bun build.js to regenerate)\n */`
             },
             logLevel: 'warning'
         });
