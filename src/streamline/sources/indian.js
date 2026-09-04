@@ -31,6 +31,31 @@ async function resolveMany(source, links) {
     return out;
 }
 
+/**
+ * Raw-HTML fallbacks for traversals Nuvio's cheerio shim lacks
+ * (.parent() returns empty, .closest() missing).
+ */
+
+/** Hrefs of <a>…</a> blocks whose inner HTML contains `needle`. */
+function anchorHrefsContaining(html, needle) {
+    const out = [];
+    const re = /<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a\s*>/gi;
+    let m;
+    while ((m = re.exec(String(html || ""))) !== null) {
+        if (m[2].indexOf(needle) !== -1 && out.indexOf(m[1]) === -1) out.push(m[1]);
+    }
+    return out;
+}
+
+/** First <a href> in the HTML following a marker string. */
+function firstAnchorAfter(html, marker) {
+    const src = String(html || "");
+    const idx = marker ? src.indexOf(marker) : 0;
+    if (idx === -1) return null;
+    const m = src.substring(idx, idx + 8000).match(/<a[^>]+href="([^"]+)"/i);
+    return m ? m[1] : null;
+}
+
 /** 4KHDHub — title search, hubcloud or redirect-chain links. */
 export async function scrape4khdhub(ctx) {
     if (!enabled("hdhub")) return [];
@@ -249,7 +274,11 @@ export async function scrapeMoviesdrive(ctx) {
         $("h5").each(function (_, el) {
             const t = $(el).text() || "";
             if (new RegExp("Season " + ctx.season + "|S" + slug.s, "i").test(t)) {
-                seasonHref = $(el).next().find("a").attr("href") || $(el).parent().find("a").attr("href");
+                // Nuvio's cheerio shim has no .parent()/.closest() — stay
+                // within .next() and fall back to a raw-HTML scan.
+                seasonHref =
+                    $(el).next().find("a").attr("href") ||
+                    firstAnchorAfter(pageHtml, t.slice(0, 60));
                 return false;
             }
         });
@@ -313,10 +342,10 @@ async function scrapeVegaLike(apiKey, source, ctx) {
         if (imdbHref && imdbHref.indexOf(ctx.imdbId) === -1) return [];
         const links = [];
         if (!ctx.isTv) {
-            const btns = $("button.dwd-button").toArray();
-            for (const b of btns.slice(0, 6)) {
-                const href = $(b).parent().attr("href") || $(b).closest("a").attr("href");
-                if (!href) continue;
+            // Anchor href of each download button via raw HTML: Nuvio's
+            // cheerio shim cannot traverse upwards (.parent()/.closest()).
+            const btnHrefs = anchorHrefsContaining(pageHtml, "dwd-button");
+            for (const href of btnHrefs.slice(0, 6)) {
                 try {
                     const sub = await fetchText(fixUrl(href, base), {}, 15000);
                     const $s = cheerio.load(sub);

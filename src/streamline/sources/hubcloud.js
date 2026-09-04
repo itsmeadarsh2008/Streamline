@@ -203,7 +203,13 @@ export async function resolveHubcloud(url, sourceName) {
         if (url.indexOf("/video/") !== -1) {
             link = ($("div.vd > center > a").attr("href") || "").trim();
         } else {
-            const scriptTag = $("script:contains('url')").toString();
+            // Nuvio's cheerio shim has no :contains — filter scripts in JS.
+            let scriptText = "";
+            $("script").each(function (_, el) {
+                const t = $(el).html() || "";
+                if (t.indexOf("url") !== -1 && t.length < 20000) scriptText += t + "\n";
+            });
+            const scriptTag = scriptText || doc;
             if (url.indexOf("vcloud") !== -1) {
                 link = extractDoubleAtob(scriptTag);
             } else {

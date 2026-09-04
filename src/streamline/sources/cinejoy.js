@@ -76,13 +76,20 @@ export async function scrape(ctx) {
                 const result = (encJson && encJson.result) || encJson;
                 if (!result || !result.data) continue;
                 const bodyBytes = b64urlDecodeToBytes(result.data);
+                // Nuvio's fetch has no arrayBuffer() and the bridge takes
+                // string bodies: send bytes as a binary string, recover the
+                // reply the same way (latin-1 round-trip).
+                let binBody = "";
+                for (let i = 0; i < bodyBytes.length; i++) binBody += String.fromCharCode(bodyBytes[i] & 255);
                 const gRes = await fetch(CINEJOY_API + "/g", {
                     method: "POST",
                     headers: Object.assign({}, headers, { "Content-Type": "application/octet-stream" }),
-                    body: new Uint8Array(bodyBytes)
+                    body: binBody
                 });
-                const gBuf = new Uint8Array(await gRes.arrayBuffer());
-                const payload = b64urlEncodeNoPad(Array.from(gBuf));
+                const gText = await gRes.text();
+                const gBuf = [];
+                for (let i = 0; i < gText.length; i++) gBuf.push(gText.charCodeAt(i) & 255);
+                const payload = b64urlEncodeNoPad(gBuf);
                 const decJson = await postJson(
                     MULTI_DECRYPT_API + "/dec-cinejoy",
                     { text: payload, state: result.state },

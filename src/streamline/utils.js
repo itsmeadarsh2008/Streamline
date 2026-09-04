@@ -9,7 +9,19 @@ export function defaultHeaders(extra) {
     return Object.assign({ "User-Agent": UA, "Accept": "*/*" }, extra || {});
 }
 
+/** Nuvio's QuickJS runtime has no timers — degrade to untimed fetch. */
+function hasTimers() {
+    try {
+        return typeof setTimeout === "function" && typeof clearTimeout === "function";
+    } catch (e) {
+        return false;
+    }
+}
+
 export async function fetchWithTimeout(url, options, timeoutMs) {
+    if (!hasTimers()) {
+        return fetch(url, options || {});
+    }
     const timeout = timeoutMs || 20000;
     let timer = null;
     try {
@@ -163,6 +175,7 @@ export async function runLimited(tasks, concurrency) {
 }
 
 export function withTimeout(promise, ms, label) {
+    if (!hasTimers()) return promise;
     const timeout = ms || 25000;
     return Promise.race([
         promise,

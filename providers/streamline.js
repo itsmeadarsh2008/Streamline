@@ -148,8 +148,18 @@ function fetchTmdbMeta(tmdbId, mediaType) {
 function defaultHeaders(extra) {
   return Object.assign({ "User-Agent": UA, "Accept": "*/*" }, extra || {});
 }
+function hasTimers() {
+  try {
+    return typeof setTimeout === "function" && typeof clearTimeout === "function";
+  } catch (e) {
+    return false;
+  }
+}
 function fetchWithTimeout(url, options, timeoutMs) {
   return __async(this, null, function* () {
+    if (!hasTimers()) {
+      return fetch(url, options || {});
+    }
     const timeout = timeoutMs || 2e4;
     let timer = null;
     try {
@@ -277,6 +287,8 @@ function runLimited(tasks, concurrency) {
   });
 }
 function withTimeout(promise, ms, label) {
+  if (!hasTimers())
+    return promise;
   const timeout = ms || 25e3;
   return Promise.race([
     promise,
@@ -1721,13 +1733,19 @@ function scrape9(ctx) {
           if (!result || !result.data)
             continue;
           const bodyBytes = b64urlDecodeToBytes(result.data);
+          let binBody = "";
+          for (let i = 0; i < bodyBytes.length; i++)
+            binBody += String.fromCharCode(bodyBytes[i] & 255);
           const gRes = yield fetch(CINEJOY_API + "/g", {
             method: "POST",
             headers: Object.assign({}, headers, { "Content-Type": "application/octet-stream" }),
-            body: new Uint8Array(bodyBytes)
+            body: binBody
           });
-          const gBuf = new Uint8Array(yield gRes.arrayBuffer());
-          const payload = b64urlEncodeNoPad(Array.from(gBuf));
+          const gText = yield gRes.text();
+          const gBuf = [];
+          for (let i = 0; i < gText.length; i++)
+            gBuf.push(gText.charCodeAt(i) & 255);
+          const payload = b64urlEncodeNoPad(gBuf);
           const decJson = yield postJson(
             MULTI_DECRYPT_API + "/dec-cinejoy",
             { text: payload, state: result.state },
@@ -2040,7 +2058,13 @@ function resolveHubcloud(url, sourceName) {
       if (url.indexOf("/video/") !== -1) {
         link = ($("div.vd > center > a").attr("href") || "").trim();
       } else {
-        const scriptTag = $("script:contains('url')").toString();
+        let scriptText = "";
+        $("script").each(function(_, el) {
+          const t = $(el).html() || "";
+          if (t.indexOf("url") !== -1 && t.length < 2e4)
+            scriptText += t + "\n";
+        });
+        const scriptTag = scriptText || doc;
         if (url.indexOf("vcloud") !== -1) {
           link = extractDoubleAtob(scriptTag);
         } else {
@@ -2146,6 +2170,24 @@ function resolveMany(source, links) {
     }
     return out;
   });
+}
+function anchorHrefsContaining(html, needle) {
+  const out = [];
+  const re = /<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a\s*>/gi;
+  let m;
+  while ((m = re.exec(String(html || ""))) !== null) {
+    if (m[2].indexOf(needle) !== -1 && out.indexOf(m[1]) === -1)
+      out.push(m[1]);
+  }
+  return out;
+}
+function firstAnchorAfter(html, marker) {
+  const src = String(html || "");
+  const idx = marker ? src.indexOf(marker) : 0;
+  if (idx === -1)
+    return null;
+  const m = src.substring(idx, idx + 8e3).match(/<a[^>]+href="([^"]+)"/i);
+  return m ? m[1] : null;
 }
 function scrape4khdhub(ctx) {
   return __async(this, null, function* () {
@@ -2391,7 +2433,7 @@ function scrapeMoviesdrive(ctx) {
       $("h5").each(function(_, el) {
         const t = $(el).text() || "";
         if (new RegExp("Season " + ctx.season + "|S" + slug.s, "i").test(t)) {
-          seasonHref = $(el).next().find("a").attr("href") || $(el).parent().find("a").attr("href");
+          seasonHref = $(el).next().find("a").attr("href") || firstAnchorAfter(pageHtml, t.slice(0, 60));
           return false;
         }
       });
@@ -2461,11 +2503,8 @@ function scrapeVegaLike(apiKey, source, ctx) {
         return [];
       const links = [];
       if (!ctx.isTv) {
-        const btns = $("button.dwd-button").toArray();
-        for (const b of btns.slice(0, 6)) {
-          const href = $(b).parent().attr("href") || $(b).closest("a").attr("href");
-          if (!href)
-            continue;
+        const btnHrefs = anchorHrefsContaining(pageHtml, "dwd-button");
+        for (const href of btnHrefs.slice(0, 6)) {
           try {
             const sub = yield fetchText(fixUrl(href, base), {}, 15e3);
             const $s = import_cheerio_without_node_native3.default.load(sub);

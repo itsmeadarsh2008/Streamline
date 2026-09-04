@@ -49,7 +49,7 @@ app-store builds do not.
 
 1. Push this repo (or your fork) to GitHub.
 2. Copy your manifest URL:
-   `https://raw.githubusercontent.com/<you>/Streamline/main/manifest.json`
+   `https://raw.githubusercontent.com/itsmeadarsh2008/Streamline/main/manifest.json`
 3. In Nuvio: **Settings → Content & Discovery → Plugins → Add Repository**,
    paste the URL, refresh, and enable the **Streamline** provider.
 

@@ -7,6 +7,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 const CryptoJS = require('crypto-js');
 
 const built = require('./providers/streamline.js');
@@ -92,6 +93,59 @@ async function offline() {
     console.log("\n✅ " + passed + " offline tests passed");
 }
 
+/**
+ * Nuvio-runtime simulation: execute the built bundle the way NuvioMobile's
+ * PluginRuntime does — `var module/exports` wrapper, Nuvio-style `require`
+ * shim (cheerio + crypto-js only), SCRAPER_SETTINGS global, and crucially
+ * NO setTimeout/clearTimeout (QuickJS has no timers). Asserts the bundle
+ * loads, onSettings resolves, and getStreams resolves (to [] on dead
+ * network) instead of throwing on missing globals.
+ */
+async function nuvioRuntimeSim() {
+    console.log("\nNuvio runtime simulation (no timers, shimmed require):");
+    const code = fs.readFileSync(path.join(__dirname, 'providers/streamline.js'), 'utf-8');
+    const sandbox = {
+        console: console,
+        Promise: Promise, JSON: JSON, Object: Object, Array: Array,
+        String: String, Number: Number, Boolean: Boolean, Math: Math, Date: Date,
+        RegExp: RegExp, Error: Error, TypeError: TypeError, RangeError: RangeError,
+        encodeURIComponent: encodeURIComponent, decodeURIComponent: decodeURIComponent,
+        encodeURI: encodeURI, decodeURI: decodeURI,
+        escape: escape, unescape: unescape,
+        isNaN: isNaN, parseInt: parseInt, parseFloat: parseFloat,
+        Uint8Array: Uint8Array, ArrayBuffer: ArrayBuffer,
+        TextEncoder: TextEncoder, TextDecoder: TextDecoder,
+        URL: URL,
+        fetch: async function () { throw new Error("no network in sim"); },
+        require: function (name) {
+            if (name === "crypto-js") return CryptoJS;
+            if (name === "cheerio" || name === "cheerio-without-node-native" || name === "react-native-cheerio") {
+                // Like Nuvio, the module must resolve at load; usage is
+                // exercised by live tests, not here.
+                return { load: function () { throw new Error("no dom in sim"); } };
+            }
+            throw new Error("Module '" + name + "' is not available");
+        }
+    };
+    sandbox.globalThis = sandbox;
+    sandbox.global = sandbox;
+    sandbox.window = sandbox;
+    sandbox.self = sandbox;
+    ok("sim has no setTimeout", typeof sandbox.setTimeout === "undefined");
+    vm.createContext(sandbox);
+    vm.runInContext("globalThis.SCRAPER_SETTINGS = {};", sandbox);
+    vm.runInContext("var module = { exports: {} }; var exports = module.exports;", sandbox);
+    vm.runInContext(code, sandbox); // must not throw at load
+    ok("bundle loads without timers", true);
+    const layout = await vm.runInContext(
+        "(async function(){ var f = module.exports.onSettings || globalThis.onSettings; return await f(); })()",
+        sandbox
+    );
+    ok("sim onSettings resolves", Array.isArray(layout) && layout.length > 10);
+    const streams = await vm.runInContext('module.exports.getStreams("693134", "movie")', sandbox);
+    ok("sim getStreams resolves to array", Array.isArray(streams));
+}
+
 async function live() {
     console.log("\nLive test (Dune: Part Two, movie, TMDB 693134)...");
     const streams = await built.getStreams('693134', 'movie');
@@ -110,6 +164,8 @@ async function live() {
 (async function () {
     try {
         await offline();
+        await nuvioRuntimeSim();
+        console.log("\n✅ " + passed + " tests passed");
         if (process.env.LIVE === "1") await live();
     } catch (e) {
         console.error("\n❌ " + e.message);
