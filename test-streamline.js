@@ -31,7 +31,7 @@ function loadBuilt(id) {
 async function offline() {
     console.log("Manifest + provider surface:");
     ok("repo named Streamline", manifest.name === "Streamline");
-    ok("22 scrapers", manifest.scrapers.length === 22);
+    ok("23 scrapers", manifest.scrapers.length === 23);
     const ids = manifest.scrapers.map(function (s) { return s.id; });
     ok("ids unique", new Set(ids).size === ids.length);
 

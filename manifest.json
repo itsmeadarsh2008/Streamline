@@ -1,6 +1,6 @@
 {
   "name": "Streamline",
-  "version": "1.6.1",
+  "version": "1.7.0",
   "description": "Streamline — complete Nuvio streaming plugin. Port of CineStream (Cloudstream) under the Streamline name: one provider per source for movies, series and anime, running on-device.",
   "author": "Streamline",
   "scrapers": [
@@ -470,6 +470,28 @@
       "contentLanguage": [
         "en",
         "ja"
+      ]
+    },
+    {
+      "id": "anidb",
+      "name": "AniDB",
+      "description": "AniDB subbed/dubbed anime with multi-audio HLS (Streamline clean-room port).",
+      "version": "1.0.0",
+      "author": "Streamline",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/anidb.js",
+      "enabled": true,
+      "formats": [
+        "m3u8"
+      ],
+      "logo": "https://i.postimg.cc/rmMzZ45K/anidb.png",
+      "contentLanguage": [
+        "en",
+        "ja",
+        "ko"
       ]
     },
     {

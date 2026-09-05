@@ -24,7 +24,7 @@ builds do not.
 
 ## Features
 
-- **22 providers, one per source.** Enable only what you use; test each in
+- **23 providers, one per source.** Enable only what you use; test each in
   isolation. No mega-provider, no 22-source pile-up in a single test run.
 - **Full quality, giant files kept.** From 480p to UHD REMUX — nothing is
   filtered by size. Each row carries its size/quality label so you pick to
@@ -94,6 +94,7 @@ Stremio torrent/subtitle helpers):
 | ShowBox (needs token) / MovieBox / AllMovieLand / Cinejoy | Token/search/play flows |
 | 4KHDHub / UHDMovies / MoviesMod / MoviesDrive / VegaMovies / RogMovies / Bollyflix | Mirror scrapes + HubCloud/VCloud terminals |
 | Anizone | Title-based multi-audio anime |
+| AniDB | Subbed/dubbed anime, multi-audio HLS (clean-room port, unobfuscated) |
 | Torrents | Torrentio + TorrentsDB magnets for native debrid |
 
 Shared HubCloud/VCloud terminals (FSL, Mega, Pixeldrain, 10Gbps, Buzz,
@@ -147,7 +148,7 @@ Rules that keep bundles working in Nuvio:
 - Every provider must fail soft: catch internally and return `[]`.
 
 ```
-manifest.json               # plugin repository manifest (22 providers)
+manifest.json               # plugin repository manifest (23 providers)
 src/<provider>/index.js      # one entry per source (edit here)
 src/_shared/                # library: tmdb/ctx, utils, subs, torrents, sources
 providers/<id>.js           # built artifacts — what Nuvio downloads
