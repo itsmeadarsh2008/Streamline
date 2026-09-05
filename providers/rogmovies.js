@@ -48,10 +48,6 @@ var __async = (__this, __arguments, generator) => {
 var TMDB_API_KEY = "1865f43a0549ca50d341dd9ab8b29f49";
 var TMDB_BASE_URL = "https://api.themoviedb.org/3";
 var WYZIE_API = "https://sub.wyzie.io";
-var STREMIO_SUBS = [
-  "https://opensubtitles.stremio.homes",
-  "https://subsense.nepiraw.com/n0tcjfba-"
-];
 var URLS_JSON = "https://raw.githubusercontent.com/SaurabhKaperwan/Utils/refs/heads/main/urls.json";
 var _dynamicCache = null;
 var _dynamicAt = 0;
@@ -602,6 +598,10 @@ function presentStreams(streams, ctx) {
 }
 
 // src/_shared/subs.js
+var STREMIO_SUBS = [
+  "https://opensubtitles.stremio.homes/en|hi|de|ar|tr|es|ta|te|ru|ko/ai-translated=true|from=all|auto-adjustment=true",
+  'https://subsense.nepiraw.com/n0tcjfba-{"languages":["en","hi","ta","es","ar"],"maxSubtitles":10}'
+];
 function settings() {
   try {
     return globalThis.SCRAPER_SETTINGS || {};

@@ -35,10 +35,8 @@ export const WYZIE_API = "https://sub.wyzie.io";
 // Stremio-compatible torrent + subtitle backends (CineStream Stremio helpers)
 export const TORRENTIO_API = "https://torrentio.strem.fun/limit=4";
 export const TORRENTSDB_API = "https://torrentsdb.com/eyJsaW1pdCI6IjMiLCJkZWJyaWRvcHRpb25zIjpbIm5vZG93bmxvYWRsaW5rcyJdfQ==";
-export const STREMIO_SUBS = [
-    "https://opensubtitles.stremio.homes",
-    "https://subsense.nepiraw.com/n0tcjfba-"
-];
+// (Moved to subs.js with full route config — bare bases 404.)
+export const STREMIO_SUBS = [];
 
 // ── Dynamic API config (CineStream `init()` from urls.json) ──────────
 const URLS_JSON = "https://raw.githubusercontent.com/SaurabhKaperwan/Utils/refs/heads/main/urls.json";

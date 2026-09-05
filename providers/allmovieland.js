@@ -27,10 +27,6 @@ var TMDB_API_KEY = "1865f43a0549ca50d341dd9ab8b29f49";
 var TMDB_BASE_URL = "https://api.themoviedb.org/3";
 var ALLMOVIELAND_API = "https://allmovieland.one";
 var WYZIE_API = "https://sub.wyzie.io";
-var STREMIO_SUBS = [
-  "https://opensubtitles.stremio.homes",
-  "https://subsense.nepiraw.com/n0tcjfba-"
-];
 var UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 // src/_shared/tmdb.js
@@ -513,6 +509,10 @@ function presentStreams(streams, ctx) {
 }
 
 // src/_shared/subs.js
+var STREMIO_SUBS = [
+  "https://opensubtitles.stremio.homes/en|hi|de|ar|tr|es|ta|te|ru|ko/ai-translated=true|from=all|auto-adjustment=true",
+  'https://subsense.nepiraw.com/n0tcjfba-{"languages":["en","hi","ta","es","ar"],"maxSubtitles":10}'
+];
 function settings() {
   try {
     return globalThis.SCRAPER_SETTINGS || {};

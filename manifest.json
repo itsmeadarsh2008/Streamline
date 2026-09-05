@@ -1,6 +1,6 @@
 {
   "name": "Streamline",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Streamline — complete Nuvio streaming plugin. Port of CineStream (Cloudstream) under the Streamline name: one provider per source for movies, series and anime, running on-device.",
   "author": "Streamline",
   "scrapers": [
@@ -8,7 +8,7 @@
       "id": "vidlink",
       "name": "Vidlink",
       "description": "Vidlink streaming with encrypted TMDB ID support (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -29,7 +29,7 @@
       "id": "videasy",
       "name": "Videasy",
       "description": "Videasy multi-server streaming with subtitles (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -55,7 +55,7 @@
       "id": "hexa",
       "name": "Hexa",
       "description": "Hexa high-quality streams via TMDB mapping (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -76,7 +76,7 @@
       "id": "vidzee",
       "name": "Vidzee",
       "description": "Vidzee multi-server streaming with subtitles (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -97,7 +97,7 @@
       "id": "vidrock",
       "name": "Vidrock",
       "description": "Vidrock direct streams, TMDB-keyed (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -119,7 +119,7 @@
       "id": "vidfast",
       "name": "VidFast",
       "description": "VidFast multi-server streaming with subtitles (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -140,7 +140,7 @@
       "id": "vidcore",
       "name": "Vidcore",
       "description": "Vidcore multi-server streaming with subtitles (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -160,7 +160,7 @@
       "id": "vaplayer",
       "name": "VaPlayer",
       "description": "VaPlayer HLS streams with subtitles (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -180,7 +180,7 @@
       "id": "primesrc",
       "name": "PrimeSrc",
       "description": "PrimeSrc multi-server direct links (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -202,7 +202,7 @@
       "id": "showbox",
       "name": "ShowBox",
       "description": "ShowBox/FebBox quality lists. Needs a FebBox token (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -224,7 +224,7 @@
       "id": "moviebox",
       "name": "MovieBox",
       "description": "MovieBox multi-language streams with captions (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -248,7 +248,7 @@
       "id": "allmovieland",
       "name": "AllMovieLand",
       "description": "AllMovieLand multi-language HLS (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -272,7 +272,7 @@
       "id": "cinejoy",
       "name": "Cinejoy",
       "description": "Cinejoy multi-server streams (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -294,7 +294,7 @@
       "id": "hdhub",
       "name": "4KHDHub",
       "description": "4KHDHub direct links, 480p up to UHD REMUX — giant files kept (Streamline port of CineStream).",
-      "version": "1.3.1",
+      "version": "1.4.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -317,7 +317,7 @@
       "id": "uhdmovies",
       "name": "UHDMovies",
       "description": "UHDMovies multi-resolution direct links (Streamline port of CineStream).",
-      "version": "1.3.1",
+      "version": "1.4.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -340,7 +340,7 @@
       "id": "moviesmod",
       "name": "MoviesMod",
       "description": "MoviesMod multi-quality direct links (Streamline port of CineStream).",
-      "version": "1.3.1",
+      "version": "1.4.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -363,7 +363,7 @@
       "id": "moviesdrive",
       "name": "MoviesDrive",
       "description": "MoviesDrive HubCloud/GDrive extraction (Streamline port of CineStream).",
-      "version": "1.3.1",
+      "version": "1.4.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -386,7 +386,7 @@
       "id": "vegamovies",
       "name": "VegaMovies",
       "description": "VegaMovies high-quality direct links, full REMUX kept (Streamline port of CineStream).",
-      "version": "1.3.1",
+      "version": "1.4.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -409,7 +409,7 @@
       "id": "rogmovies",
       "name": "RogMovies",
       "description": "RogMovies for Indian titles, full quality kept (Streamline port of CineStream).",
-      "version": "1.3.1",
+      "version": "1.4.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -432,7 +432,7 @@
       "id": "bollyflix",
       "name": "Bollyflix",
       "description": "Bollyflix multi-quality direct links (Streamline port of CineStream).",
-      "version": "1.3.1",
+      "version": "1.4.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -455,7 +455,7 @@
       "id": "anizone",
       "name": "Anizone",
       "description": "Anizone multi-audio anime streams (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -476,7 +476,7 @@
       "id": "anidb",
       "name": "AniDB",
       "description": "AniDB subbed/dubbed anime with multi-audio HLS (Streamline clean-room port).",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",
@@ -498,7 +498,7 @@
       "id": "torrents",
       "name": "Torrents",
       "description": "Torrentio + TorrentsDB magnets for Nuvio native debrid. All swarms kept, incl. giant REMUX (Streamline port of CineStream).",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "Streamline",
       "supportedTypes": [
         "movie",

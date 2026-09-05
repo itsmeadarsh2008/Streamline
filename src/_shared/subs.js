@@ -2,8 +2,16 @@
  * Subtitle aggregation. Port of CineStream `invokeStremioSubtitles()` and
  * `invokeWYZIESubs()` — subtitles are attached to streams Nuvio-side.
  */
-import { STREMIO_SUBS, WYZIE_API } from './constants.js';
+import { WYZIE_API } from './constants.js';
 import { fetchText } from './utils.js';
+
+// Full configured Stremio subtitle endpoints (port of CineStream
+// invokeStremioSubtitles — the language/config segments are part of the
+// route; bare bases 404).
+export const STREMIO_SUBS = [
+    "https://opensubtitles.stremio.homes/en|hi|de|ar|tr|es|ta|te|ru|ko/ai-translated=true|from=all|auto-adjustment=true",
+    "https://subsense.nepiraw.com/n0tcjfba-{\"languages\":[\"en\",\"hi\",\"ta\",\"es\",\"ar\"],\"maxSubtitles\":10}"
+];
 
 function settings() {
     try {
