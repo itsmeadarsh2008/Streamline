@@ -286,13 +286,33 @@ export async function resolveHubcloud(url, sourceName) {
         }
 
         // Follow redirects to a fresh-signed URL (Range-capped, body unread).
+        // Manual walk first (deterministic final URL, like upstream
+        // resolveFinalUrl); fall back to auto-follow + response.url since
+        // some bridges don't honor redirect:"manual".
         async function resolveFinal(u) {
+            const H = { "User-Agent": UA, Referer: link, Range: "bytes=0-0" };
+            let cur = u;
             try {
-                const r = await fetch(u, {
-                    redirect: "follow",
-                    headers: { "User-Agent": UA, Referer: link, Range: "bytes=0-0" }
-                });
-                let finalUrl = r.url || u;
+                for (let i = 0; i < 7; i++) {
+                    const res = await fetch(cur, { redirect: "manual", headers: H });
+                    if (!res || res.status < 300 || res.status > 399) break;
+                    const loc = (res.headers && typeof res.headers.get === "function"
+                        ? res.headers.get("location") : "") || "";
+                    if (!loc) break;
+                    try {
+                        cur = new URL(loc, cur).toString();
+                    } catch (e) {
+                        break;
+                    }
+                }
+            } catch (e) { /* fall through */ }
+            if (cur !== u) {
+                if (cur.indexOf("link=") !== -1) cur = cur.split("link=")[1];
+                return cur;
+            }
+            try {
+                const r = await fetch(u, { redirect: "follow", headers: H });
+                let finalUrl = (r && r.url) || u;
                 if (finalUrl.indexOf("link=") !== -1) finalUrl = finalUrl.split("link=")[1];
                 return finalUrl || u;
             } catch (e) {

@@ -870,12 +870,32 @@ function resolveHubcloud(url, sourceName) {
       }
       function resolveFinal(u) {
         return __async(this, null, function* () {
+          const H = { "User-Agent": UA, Referer: link, Range: "bytes=0-0" };
+          let cur = u;
           try {
-            const r = yield fetch(u, {
-              redirect: "follow",
-              headers: { "User-Agent": UA, Referer: link, Range: "bytes=0-0" }
-            });
-            let finalUrl = r.url || u;
+            for (let i = 0; i < 7; i++) {
+              const res = yield fetch(cur, { redirect: "manual", headers: H });
+              if (!res || res.status < 300 || res.status > 399)
+                break;
+              const loc = (res.headers && typeof res.headers.get === "function" ? res.headers.get("location") : "") || "";
+              if (!loc)
+                break;
+              try {
+                cur = new URL(loc, cur).toString();
+              } catch (e) {
+                break;
+              }
+            }
+          } catch (e) {
+          }
+          if (cur !== u) {
+            if (cur.indexOf("link=") !== -1)
+              cur = cur.split("link=")[1];
+            return cur;
+          }
+          try {
+            const r = yield fetch(u, { redirect: "follow", headers: H });
+            let finalUrl = r && r.url || u;
             if (finalUrl.indexOf("link=") !== -1)
               finalUrl = finalUrl.split("link=")[1];
             return finalUrl || u;
