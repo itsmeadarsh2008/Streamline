@@ -985,14 +985,22 @@ function enabled(key) {
 }
 function resolveMany(source, links) {
   return __async(this, null, function* () {
+    const queue = links.slice(0, 8);
     const out = [];
-    for (const link of links.slice(0, 8)) {
-      try {
-        const r = yield resolveSourceLink(source, link);
+    for (let i = 0; i < queue.length; i += 4) {
+      const chunk = queue.slice(i, i + 4);
+      const settled = yield Promise.all(chunk.map(function(link) {
+        return __async(this, null, function* () {
+          try {
+            return yield resolveSourceLink(source, link);
+          } catch (e) {
+            return [];
+          }
+        });
+      }));
+      settled.forEach(function(r) {
         out.push.apply(out, r);
-      } catch (e) {
-        continue;
-      }
+      });
     }
     return out;
   });

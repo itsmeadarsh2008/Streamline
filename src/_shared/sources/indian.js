@@ -19,14 +19,23 @@ function enabled(key) {
 }
 
 async function resolveMany(source, links) {
+    // Hub pages resolve independently: run 4-wide instead of sequentially.
+    // Sequential resolution took 20-40s per provider (blowing the wrapper
+    // budget → slow menus) and let signed links rot before the tap.
+    const queue = links.slice(0, 8);
     const out = [];
-    for (const link of links.slice(0, 8)) {
-        try {
-            const r = await resolveSourceLink(source, link);
+    for (let i = 0; i < queue.length; i += 4) {
+        const chunk = queue.slice(i, i + 4);
+        const settled = await Promise.all(chunk.map(async function (link) {
+            try {
+                return await resolveSourceLink(source, link);
+            } catch (e) {
+                return [];
+            }
+        }));
+        settled.forEach(function (r) {
             out.push.apply(out, r);
-        } catch (e) {
-            continue;
-        }
+        });
     }
     return out;
 }
