@@ -1,6 +1,6 @@
 {
   "name": "Streamline",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "description": "Streamline \u2014 complete Nuvio streaming plugin. Port of CineStream (Cloudstream) under the Streamline name: one provider per source for movies, series and anime, running on-device.",
   "author": "Streamline",
   "scrapers": [
