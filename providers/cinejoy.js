@@ -213,10 +213,14 @@ function withTimeout(promise, ms, label) {
   if (!hasTimers())
     return promise;
   const timeout = ms || 25e3;
+  let timer = null;
   return Promise.race([
-    promise,
+    Promise.resolve(promise).finally(function() {
+      if (timer)
+        clearTimeout(timer);
+    }),
     new Promise(function(resolve) {
-      setTimeout(function() {
+      timer = setTimeout(function() {
         console.log("[Streamline] timeout: " + label);
         resolve([]);
       }, timeout);
@@ -487,11 +491,11 @@ function richName(provider, meta) {
     bits.push(meta.lang);
   return provider + " | " + bits.join(" \u2022 ");
 }
-function enrichStream(stream, raw, line1) {
+function enrichStream(stream, raw, line1, opts) {
   if (!stream || stream._rich)
     return stream;
-  const meta = parseMeta((raw || "") + " " + (stream.url || ""));
-  const rt = richTitle(stream.name, line1 || stream.title, meta);
+  const meta = parseMeta((raw || "") + (opts && opts.skipUrl ? "" : " " + (stream.url || "")));
+  const rt = richTitle(stream.name, line1 || stream.title, meta, opts && opts.container);
   const copy = Object.assign({}, stream);
   copy.name = richName(stream.name, meta);
   copy.title = rt.text;
@@ -689,6 +693,7 @@ function scrape(ctx) {
       for (const srv of servers.slice(0, 6)) {
         try {
           const name = srv && srv.name || srv;
+          const servLabel = name ? String(name).charAt(0).toUpperCase() + String(name).slice(1) : name;
           let target = CINEJOY_API + "/?title=" + encodeURIComponent(ctx.title) + "&type=" + type + "&year=" + (ctx.year || "") + "&imdb=" + (ctx.imdbId || "") + "&tmdb=" + (ctx.tmdbId || "") + "&server=" + encodeURIComponent(name);
           if (isTv)
             target += "&season=" + ctx.season + "&episode=" + ctx.episode;
@@ -726,7 +731,7 @@ function scrape(ctx) {
             if (!st)
               return;
             if (st.playlist) {
-              const s = makeStream("Cinejoy", "Cinejoy - " + (st.id || name) + " [HLS]", st.playlist, "1080p", { Referer: CINEJOY_BASE + "/" }, []);
+              const s = makeStream("Cinejoy", "Cinejoy - " + servLabel + " [HLS]", st.playlist, "1080p", { Referer: CINEJOY_BASE + "/" }, []);
               if (s)
                 out.push(s);
             }
@@ -735,7 +740,7 @@ function scrape(ctx) {
               const u = quals[k];
               if (!u || String(u).indexOf("https") !== 0)
                 return;
-              const s = makeStream("Cinejoy", "Cinejoy - " + (st.id || name) + " " + k, u, parseQuality(k), { Referer: CINEJOY_BASE + "/" }, []);
+              const s = makeStream("Cinejoy", "Cinejoy - " + servLabel + " " + k, u, parseQuality(k), { Referer: CINEJOY_BASE + "/" }, []);
               if (s)
                 out.push(s);
             });

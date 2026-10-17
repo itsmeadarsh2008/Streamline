@@ -4,6 +4,7 @@
  * `extractMdrive()` and the Gofile terminal from `Extractors.kt`.
  */
 import cheerio from 'cheerio-without-node-native';
+import CryptoJS from 'crypto-js';
 import { UA, dynUrl } from '../constants.js';
 import { b64DecodeUtf8, fetchText, makeStream, parseQuality } from '../utils.js';
 import { parseMeta, enrichStream, richName, richTitle } from '../meta.js';
@@ -375,7 +376,7 @@ export async function resolveHubcloud(url, sourceName) {
 }
 
 /** Port of `Hubdrive.getUrl()`: success-button href -> terminal chain. */
-export async function resolveHubdrive(url) {
+export async function resolveHubdrive(url, source) {
     try {
         const html = await fetchText(url, {}, 20000);
         let href = "";
@@ -389,23 +390,265 @@ export async function resolveHubdrive(url) {
             href = m ? m[1] : "";
         }
         if (!href) return [];
-        return await resolveSourceLink("Hubdrive", fixUrl(href, getBaseUrl(url)));
+        return await resolveSourceLink(source || "Hubdrive", fixUrl(href, getBaseUrl(url)));
     } catch (e) {
         return [];
     }
 }
 
+/** Port of the `getPacked` + `unpack` pair used by CineStream's VidHidePro. */
+export function unpackEval(code) {
+    const call = String(code || "").match(
+        /eval\(function\(p,a,c,k,e,[dr]\)\{[\s\S]*?\}\('([\s\S]*?)',(\d+),(\d+),'([\s\S]*?)'\.split\('([^']+)'\)/
+    );
+    if (!call) return "";
+    let p = call[1];
+    const a = parseInt(call[2], 10);
+    const c = parseInt(call[3], 10);
+    const k = call[4].split(call[5]);
+    for (let i = c - 1; i >= 0; i--) {
+        if (k[i]) {
+            p = p.replace(new RegExp("\\b" + i.toString(a) + "\\b", "g"), function () { return k[i]; });
+        }
+    }
+    return p;
+}
+
+/** Port of the VidHidePro extractor (hdstream4u & friends): `/file/x` -> `/v/x` -> packed JW config -> HLS. */
+export async function resolveVidhide(source, url) {
+    const name = source || "HdStream4u";
+    try {
+        const embed = String(url).replace("/download/", "/v/").replace("/file/", "/v/").replace("/d/", "/v/");
+        const host = getBaseUrl(embed);
+        const html = await fetchText(embed, { Referer: host + "/" }, 20000);
+        let script = html.indexOf("eval(function(p,a,c,k,e") !== -1 ? unpackEval(html) : "";
+        if (!script) {
+            const si = html.match(/sources:\s*(\[[\s\S]*?\])/);
+            if (si) script = "sources:" + si[1];
+        }
+        if (!script) return [];
+        let hls = "";
+        const first = script.match(/"hls4"\s*:\s*"([^"]+)"/) || script.match(/"hls3"\s*:\s*"([^"]+)"/) ||
+            script.match(/"hls2"\s*:\s*"([^"]+)"/) || script.match(/"hls1"\s*:\s*"([^"]+)"/);
+        if (first) hls = first[1];
+        if (!hls) {
+            const any = script.match(/https?:\/\/[^"'\s\\]+(?:\.m3u8|master\.txt)[^"'\s\\]*/);
+            if (any) hls = any[0];
+        }
+        if (!hls) {
+            const m = script.match(/["']?file["']?\s*:\s*["'](https?:\/\/[^"']+)["']/);
+            if (m && !/\.(png|jpe?g|gif|webp|vtt)$/i.test(m[1])) hls = m[1];
+        }
+        if (!hls) return [];
+        hls = hls.replace(/\\\//g, "/");
+        const subs = [];
+        const tracks = script.match(/["']?tracks["']?\s*:\s*(\[[\s\S]*?\])/);
+        if (tracks) {
+            tracks[1].split(/\},?\s*\{/).forEach(function (chunk) {
+                const fm = chunk.match(/["']?file["']?\s*:\s*["']([^"']+\.vtt[^"']*)["']/);
+                if (!fm) return;
+                const lm = chunk.match(/["']?label["']?\s*:\s*["']([^"']+)["']/);
+                subs.push({
+                    url: fm[1].replace(/\\\//g, "/"),
+                    language: lm ? lm[1] : "en",
+                    name: name + " Subtitle"
+                });
+            });
+        }
+        const s = makeStream(name, name + " [HLS]", hls, "Auto",
+            { Referer: embed, Origin: host, "User-Agent": UA }, subs);
+        return s ? [s] : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+/** Port of the VidStack extractor (hubstream & friends): `/api/v1/video?id=<hash>` -> AES-CBC -> HLS. */
+export async function resolveVidstack(source, url) {
+    const name = source || "Hubstream";
+    try {
+        const hash = String(url).split("#").pop().split("/").pop();
+        const base = getBaseUrl(url);
+        const enc = (await fetchText(base + "/api/v1/video?id=" + hash, { Accept: "application/json" }, 15000)).trim();
+        for (const ivStr of ["1234567890oiuytr", "0123456789abcdef"]) {
+            let txt = "";
+            try {
+                const dec = CryptoJS.AES.decrypt(
+                    { ciphertext: CryptoJS.enc.Hex.parse(enc) },
+                    CryptoJS.enc.Utf8.parse("kiemtienmua911ca"),
+                    { iv: CryptoJS.enc.Utf8.parse(ivStr), mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+                );
+                txt = dec.toString(CryptoJS.enc.Utf8);
+            } catch (e) { txt = ""; }
+            if (!txt || txt.indexOf("source") === -1) continue;
+            const m = txt.match(/"source":"(.*?)"/);
+            if (!m) continue;
+            let m3u8 = m[1].replace(/\\\//g, "/");
+            // Bare-IP CDN hosts ship an invalid TLS cert (upstream forces http).
+            try {
+                const h = new URL(m3u8).hostname;
+                if (/^\d+\.\d+\.\d+\.\d+$/.test(h)) m3u8 = m3u8.replace(/^https:/, "http:");
+            } catch (e) { /* keep scheme */ }
+            const subs = [];
+            const sec = (txt.match(/"subtitle":\{(.*?)\}/) || [])[1];
+            if (sec) {
+                const re = /"([^"]+)":\s*"([^"]+)"/g;
+                let mm;
+                while ((mm = re.exec(sec)) !== null) {
+                    const path = mm[2].split("#")[0].replace(/\\\//g, "/");
+                    if (path) {
+                        subs.push({
+                            url: path.indexOf("http") === 0 ? path : base + path,
+                            language: mm[1],
+                            name: name + " Subtitle"
+                        });
+                    }
+                }
+            }
+            const s = makeStream(name, name + " [HLS]", m3u8, "Auto",
+                { Referer: url, Origin: base, "User-Agent": UA }, subs);
+            return s ? [s] : [];
+        }
+        return [];
+    } catch (e) {
+        return [];
+    }
+}
+
+/** Port of the HubCdn chain: `/file/<id>` JS `reurl` -> base64 `r=` -> `link=` target. */
+export async function resolveHubcdn(source, url) {
+    const name = source || "HubCdn";
+    try {
+        const html = await fetchText(url, {}, 20000);
+        let target = "";
+        const reurl = html.match(/reurl\s*=\s*["']([^"']+)["']/);
+        const candidate = reurl ? reurl[1] : "";
+        if (candidate) {
+            let decoded = candidate;
+            const rq = candidate.match(/[?&]r=([A-Za-z0-9+/=]+)/);
+            if (rq) decoded = b64DecodeUtf8(rq[1]);
+            const li = decoded.lastIndexOf("link=");
+            if (li !== -1) target = decoded.substring(li + 5);
+            else if (decoded.indexOf("http") === 0) target = decoded;
+        }
+        if (!target) {
+            const rq = html.match(/[?&]r=([A-Za-z0-9+/=]{24,})/);
+            if (rq) {
+                const decoded = b64DecodeUtf8(rq[1]);
+                const li = decoded.lastIndexOf("link=");
+                if (li !== -1) target = decoded.substring(li + 5);
+            }
+        }
+        target = String(target || "").trim();
+        if (!target || target.indexOf("http") !== 0) return [];
+        if (/hubcloud\.|vcloud\.|hubdrive\.|gdflix\.|hblinks\./i.test(target)) {
+            return await resolveSourceLink(name, target);
+        }
+        const s = makeStream(name, name + " [Direct]", target, "Auto",
+            { "User-Agent": UA, Referer: url }, []);
+        return s ? [s] : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+/** Port of the Hblinks extractor (archive pages full of hub links). */
+export async function resolveHblinks(source, url) {
+    try {
+        const html = await fetchText(url, { Referer: url }, 20000);
+        const rows = [];
+        const seen = function (href) {
+            return rows.some(function (r) { return r.href === href; });
+        };
+        try {
+            const $ = cheerio.load(html);
+            const sels = [
+                "div#primary p a", "h3 a", "h4 a", "h5 a",
+                "div.entry-content p a", "div.entry-content a"
+            ];
+            sels.forEach(function (sel) {
+                $(sel).each(function (_, el) {
+                    const href = $(el).attr("href") || "";
+                    if (/^https?:/i.test(href) &&
+                        !/whatsapp|telegram|catimages|imdb\.|facebook|twitter|instagram|youtube|hblinks|snvhost/i.test(href) &&
+                        !seen(href)) {
+                        rows.push({ href: href, hint: $(el).text().replace(/\s+/g, " ").trim() });
+                    }
+                });
+            });
+        } catch (e) { /* regex fallback below */ }
+        if (!rows.length) {
+            const re = /<a[^>]+href="(https?:[^"]+)"[^>]*>([\s\S]*?)<\/a\s*>/gi;
+            let m;
+            while ((m = re.exec(html)) !== null) {
+                const href = m[1];
+                if (/hubcloud|hubdrive|hubcdn|hdstream4u|hubstream|gdflix|pixeldrain|greenmotors/i.test(href) &&
+                    !seen(href)) {
+                    rows.push({ href: href, hint: m[2].replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() });
+                }
+            }
+        }
+        const out = [];
+        for (let i = 0; i < Math.min(rows.length, 9); i += 3) {
+            const chunk = rows.slice(i, i + 3);
+            const settled = await Promise.all(chunk.map(function (row) {
+                return resolveSourceLink(source, row.href, row.hint).catch(function () { return []; });
+            }));
+            settled.forEach(function (r) { if (Array.isArray(r)) out.push.apply(out, r); });
+        }
+        return out;
+    } catch (e) {
+        return [];
+    }
+}
+
+/** Fold an anchor's quality text (e.g. "1080p HEVC [2GB]") into bare streams
+ *  so the final presentation pass parses it together with the ctx headline. */
+function applyHint(streams, hint) {
+    const h = String(hint || "").trim();
+    if (!h) return streams || [];
+    (streams || []).forEach(function (s) {
+        if (!s || s._rich) return;
+        s.title = (s.title || s.name || "") + " " + h;
+        if (!s.quality || s.quality === "Auto") {
+            const q = parseQuality(h);
+            if (q && q !== "Auto") s.quality = q;
+        }
+    });
+    return streams || [];
+}
+
 /** Route a scraped href through the right terminal (port of `loadSourceNameExtractor`). */
-export async function resolveSourceLink(source, url) {
+export async function resolveSourceLink(source, url, hint) {
+    return applyHint(await routeSourceLink(source, url, hint), hint);
+}
+
+async function routeSourceLink(source, url, hint) {
     const u = String(url || "");
     if (!u) return [];
-    if (/hubdrive\./i.test(u)) return await resolveHubdrive(u);
+    if (/[?&]id=/.test(u) || /techyboy4u|gadgetsweb|cryptoinsights|bloggingvector|ampproject\./i.test(u)) {
+        const next = await getRedirectLinks(u);
+        if (next && next !== u) return await routeSourceLink(source, next, hint);
+        return [];
+    }
+    if (/hblinks\.|hubstream\.dad/i.test(u)) return await resolveHblinks(source, u);
+    if (/hubcdn\./i.test(u)) return await resolveHubcdn(source, u);
+    if (/hdstream4u\./i.test(u)) return await resolveVidhide(source, u);
+    if (/hubstream\.|vidstack/i.test(u)) return await resolveVidstack(source, u);
+    if (/hubdrive\./i.test(u)) return await resolveHubdrive(u, source);
     if (/hubcloud\.|vcloud\./i.test(u)) return await resolveHubcloud(u, source);
     if (/gofile\.io\/d\//i.test(u)) {
         const g = await resolveGofile(u);
         if (!g || !g.url) return [];
         const s = makeStream(source, source + " [Gofile] " + g.name, g.url, parseQuality(g.name), {}, []);
         return s ? [enrichStream(s, g.name + " " + g.url, null)] : [];
+    }
+    if (/pixeldra\./i.test(u)) {
+        const id = u.split("/").filter(Boolean).pop();
+        if (!id) return [];
+        const target = u.indexOf("/api/file/") !== -1 ? u : getBaseUrl(u) + "/api/file/" + id + "?download";
+        const s = makeStream(source, source + " [Pixeldrain]", target, "Auto", { "User-Agent": UA }, []);
+        return s ? [s] : [];
     }
     if (/\.(mp4|mkv|m3u8)(\?|$)/i.test(u)) {
         const s = makeStream(source, source + " - " + parseQuality(u), u, parseQuality(u), { "User-Agent": UA }, []);

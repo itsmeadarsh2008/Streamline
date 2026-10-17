@@ -239,10 +239,14 @@ function withTimeout(promise, ms, label) {
   if (!hasTimers())
     return promise;
   const timeout = ms || 25e3;
+  let timer = null;
   return Promise.race([
-    promise,
+    Promise.resolve(promise).finally(function() {
+      if (timer)
+        clearTimeout(timer);
+    }),
     new Promise(function(resolve) {
-      setTimeout(function() {
+      timer = setTimeout(function() {
         console.log("[Streamline] timeout: " + label);
         resolve([]);
       }, timeout);
@@ -551,11 +555,11 @@ function richName(provider, meta) {
     bits.push(meta.lang);
   return provider + " | " + bits.join(" \u2022 ");
 }
-function enrichStream(stream, raw, line1) {
+function enrichStream(stream, raw, line1, opts) {
   if (!stream || stream._rich)
     return stream;
-  const meta = parseMeta((raw || "") + " " + (stream.url || ""));
-  const rt = richTitle(stream.name, line1 || stream.title, meta);
+  const meta = parseMeta((raw || "") + (opts && opts.skipUrl ? "" : " " + (stream.url || "")));
+  const rt = richTitle(stream.name, line1 || stream.title, meta, opts && opts.container);
   const copy = Object.assign({}, stream);
   copy.name = richName(stream.name, meta);
   copy.title = rt.text;
@@ -701,6 +705,7 @@ var import_cheerio_without_node_native2 = __toESM(require("cheerio-without-node-
 
 // src/_shared/sources/hubcloud.js
 var import_cheerio_without_node_native = __toESM(require("cheerio-without-node-native"));
+var import_crypto_js = __toESM(require("crypto-js"));
 function getBaseUrl(url) {
   try {
     const u = new URL(url);
@@ -719,6 +724,63 @@ function fixUrl(url, domain) {
   if (url[0] === "/")
     return domain + url;
   return domain + "/" + url;
+}
+function rot13(s) {
+  return String(s || "").replace(/[a-zA-Z]/g, function(c) {
+    const base = c <= "Z" ? 65 : 97;
+    return String.fromCharCode((c.charCodeAt(0) - base + 13) % 26 + base);
+  });
+}
+var B64C = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+function b64EncodeUtf8(s) {
+  const bytes = [];
+  const enc = unescape(encodeURIComponent(String(s || "")));
+  for (let i = 0; i < enc.length; i++)
+    bytes.push(enc.charCodeAt(i));
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i], b = i + 1 < bytes.length ? bytes[i + 1] : 0, c = i + 2 < bytes.length ? bytes[i + 2] : 0;
+    const n = a << 16 | b << 8 | c;
+    out += B64C[n >> 18 & 63] + B64C[n >> 12 & 63];
+    out += i + 1 < bytes.length ? B64C[n >> 6 & 63] : "=";
+    out += i + 2 < bytes.length ? B64C[n & 63] : "=";
+  }
+  return out;
+}
+function getRedirectLinks(url) {
+  return __async(this, null, function* () {
+    try {
+      const doc = yield fetchText(url, {}, 15e3);
+      const re = /s\('o','([A-Za-z0-9+/=]+)'|ck\('_wp_http_\d+','([^']+)'/g;
+      let m;
+      let combined = "";
+      while ((m = re.exec(doc)) !== null)
+        combined += m[1] || m[2] || "";
+      if (!combined)
+        return "";
+      const decoded = b64DecodeUtf8(rot13(b64DecodeUtf8(b64DecodeUtf8(combined))));
+      let obj;
+      try {
+        obj = JSON.parse(decoded);
+      } catch (e) {
+        return "";
+      }
+      const encodedUrl = b64DecodeUtf8(obj.o || "").trim();
+      const data = b64EncodeUtf8(obj.data || "").trim();
+      const blogUrl = (obj.blog_url || "").trim();
+      let direct = "";
+      if (blogUrl && data) {
+        try {
+          direct = (yield fetchText(blogUrl + "?re=" + encodeURIComponent(data), {}, 15e3)).trim();
+        } catch (e) {
+          direct = "";
+        }
+      }
+      return encodedUrl || direct;
+    } catch (e) {
+      return "";
+    }
+  });
 }
 function bypassHrefli(url) {
   return __async(this, null, function* () {
@@ -1001,7 +1063,7 @@ function resolveHubcloud(url, sourceName) {
     return out;
   });
 }
-function resolveHubdrive(url) {
+function resolveHubdrive(url, source) {
   return __async(this, null, function* () {
     try {
       const html = yield fetchText(url, {}, 2e4);
@@ -1017,19 +1079,304 @@ function resolveHubdrive(url) {
       }
       if (!href)
         return [];
-      return yield resolveSourceLink("Hubdrive", fixUrl(href, getBaseUrl(url)));
+      return yield resolveSourceLink(source || "Hubdrive", fixUrl(href, getBaseUrl(url)));
     } catch (e) {
       return [];
     }
   });
 }
-function resolveSourceLink(source, url) {
+function unpackEval(code) {
+  const call = String(code || "").match(
+    /eval\(function\(p,a,c,k,e,[dr]\)\{[\s\S]*?\}\('([\s\S]*?)',(\d+),(\d+),'([\s\S]*?)'\.split\('([^']+)'\)/
+  );
+  if (!call)
+    return "";
+  let p = call[1];
+  const a = parseInt(call[2], 10);
+  const c = parseInt(call[3], 10);
+  const k = call[4].split(call[5]);
+  for (let i = c - 1; i >= 0; i--) {
+    if (k[i]) {
+      p = p.replace(new RegExp("\\b" + i.toString(a) + "\\b", "g"), function() {
+        return k[i];
+      });
+    }
+  }
+  return p;
+}
+function resolveVidhide(source, url) {
+  return __async(this, null, function* () {
+    const name = source || "HdStream4u";
+    try {
+      const embed = String(url).replace("/download/", "/v/").replace("/file/", "/v/").replace("/d/", "/v/");
+      const host = getBaseUrl(embed);
+      const html = yield fetchText(embed, { Referer: host + "/" }, 2e4);
+      let script = html.indexOf("eval(function(p,a,c,k,e") !== -1 ? unpackEval(html) : "";
+      if (!script) {
+        const si = html.match(/sources:\s*(\[[\s\S]*?\])/);
+        if (si)
+          script = "sources:" + si[1];
+      }
+      if (!script)
+        return [];
+      let hls = "";
+      const first = script.match(/"hls4"\s*:\s*"([^"]+)"/) || script.match(/"hls3"\s*:\s*"([^"]+)"/) || script.match(/"hls2"\s*:\s*"([^"]+)"/) || script.match(/"hls1"\s*:\s*"([^"]+)"/);
+      if (first)
+        hls = first[1];
+      if (!hls) {
+        const any = script.match(/https?:\/\/[^"'\s\\]+(?:\.m3u8|master\.txt)[^"'\s\\]*/);
+        if (any)
+          hls = any[0];
+      }
+      if (!hls) {
+        const m = script.match(/["']?file["']?\s*:\s*["'](https?:\/\/[^"']+)["']/);
+        if (m && !/\.(png|jpe?g|gif|webp|vtt)$/i.test(m[1]))
+          hls = m[1];
+      }
+      if (!hls)
+        return [];
+      hls = hls.replace(/\\\//g, "/");
+      const subs = [];
+      const tracks = script.match(/["']?tracks["']?\s*:\s*(\[[\s\S]*?\])/);
+      if (tracks) {
+        tracks[1].split(/\},?\s*\{/).forEach(function(chunk) {
+          const fm = chunk.match(/["']?file["']?\s*:\s*["']([^"']+\.vtt[^"']*)["']/);
+          if (!fm)
+            return;
+          const lm = chunk.match(/["']?label["']?\s*:\s*["']([^"']+)["']/);
+          subs.push({
+            url: fm[1].replace(/\\\//g, "/"),
+            language: lm ? lm[1] : "en",
+            name: name + " Subtitle"
+          });
+        });
+      }
+      const s = makeStream(
+        name,
+        name + " [HLS]",
+        hls,
+        "Auto",
+        { Referer: embed, Origin: host, "User-Agent": UA },
+        subs
+      );
+      return s ? [s] : [];
+    } catch (e) {
+      return [];
+    }
+  });
+}
+function resolveVidstack(source, url) {
+  return __async(this, null, function* () {
+    const name = source || "Hubstream";
+    try {
+      const hash = String(url).split("#").pop().split("/").pop();
+      const base = getBaseUrl(url);
+      const enc = (yield fetchText(base + "/api/v1/video?id=" + hash, { Accept: "application/json" }, 15e3)).trim();
+      for (const ivStr of ["1234567890oiuytr", "0123456789abcdef"]) {
+        let txt = "";
+        try {
+          const dec = import_crypto_js.default.AES.decrypt(
+            { ciphertext: import_crypto_js.default.enc.Hex.parse(enc) },
+            import_crypto_js.default.enc.Utf8.parse("kiemtienmua911ca"),
+            { iv: import_crypto_js.default.enc.Utf8.parse(ivStr), mode: import_crypto_js.default.mode.CBC, padding: import_crypto_js.default.pad.Pkcs7 }
+          );
+          txt = dec.toString(import_crypto_js.default.enc.Utf8);
+        } catch (e) {
+          txt = "";
+        }
+        if (!txt || txt.indexOf("source") === -1)
+          continue;
+        const m = txt.match(/"source":"(.*?)"/);
+        if (!m)
+          continue;
+        let m3u8 = m[1].replace(/\\\//g, "/");
+        try {
+          const h = new URL(m3u8).hostname;
+          if (/^\d+\.\d+\.\d+\.\d+$/.test(h))
+            m3u8 = m3u8.replace(/^https:/, "http:");
+        } catch (e) {
+        }
+        const subs = [];
+        const sec = (txt.match(/"subtitle":\{(.*?)\}/) || [])[1];
+        if (sec) {
+          const re = /"([^"]+)":\s*"([^"]+)"/g;
+          let mm;
+          while ((mm = re.exec(sec)) !== null) {
+            const path = mm[2].split("#")[0].replace(/\\\//g, "/");
+            if (path) {
+              subs.push({
+                url: path.indexOf("http") === 0 ? path : base + path,
+                language: mm[1],
+                name: name + " Subtitle"
+              });
+            }
+          }
+        }
+        const s = makeStream(
+          name,
+          name + " [HLS]",
+          m3u8,
+          "Auto",
+          { Referer: url, Origin: base, "User-Agent": UA },
+          subs
+        );
+        return s ? [s] : [];
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  });
+}
+function resolveHubcdn(source, url) {
+  return __async(this, null, function* () {
+    const name = source || "HubCdn";
+    try {
+      const html = yield fetchText(url, {}, 2e4);
+      let target = "";
+      const reurl = html.match(/reurl\s*=\s*["']([^"']+)["']/);
+      const candidate = reurl ? reurl[1] : "";
+      if (candidate) {
+        let decoded = candidate;
+        const rq = candidate.match(/[?&]r=([A-Za-z0-9+/=]+)/);
+        if (rq)
+          decoded = b64DecodeUtf8(rq[1]);
+        const li = decoded.lastIndexOf("link=");
+        if (li !== -1)
+          target = decoded.substring(li + 5);
+        else if (decoded.indexOf("http") === 0)
+          target = decoded;
+      }
+      if (!target) {
+        const rq = html.match(/[?&]r=([A-Za-z0-9+/=]{24,})/);
+        if (rq) {
+          const decoded = b64DecodeUtf8(rq[1]);
+          const li = decoded.lastIndexOf("link=");
+          if (li !== -1)
+            target = decoded.substring(li + 5);
+        }
+      }
+      target = String(target || "").trim();
+      if (!target || target.indexOf("http") !== 0)
+        return [];
+      if (/hubcloud\.|vcloud\.|hubdrive\.|gdflix\.|hblinks\./i.test(target)) {
+        return yield resolveSourceLink(name, target);
+      }
+      const s = makeStream(
+        name,
+        name + " [Direct]",
+        target,
+        "Auto",
+        { "User-Agent": UA, Referer: url },
+        []
+      );
+      return s ? [s] : [];
+    } catch (e) {
+      return [];
+    }
+  });
+}
+function resolveHblinks(source, url) {
+  return __async(this, null, function* () {
+    try {
+      const html = yield fetchText(url, { Referer: url }, 2e4);
+      const rows = [];
+      const seen = function(href) {
+        return rows.some(function(r) {
+          return r.href === href;
+        });
+      };
+      try {
+        const $ = import_cheerio_without_node_native.default.load(html);
+        const sels = [
+          "div#primary p a",
+          "h3 a",
+          "h4 a",
+          "h5 a",
+          "div.entry-content p a",
+          "div.entry-content a"
+        ];
+        sels.forEach(function(sel) {
+          $(sel).each(function(_, el) {
+            const href = $(el).attr("href") || "";
+            if (/^https?:/i.test(href) && !/whatsapp|telegram|catimages|imdb\.|facebook|twitter|instagram|youtube|hblinks|snvhost/i.test(href) && !seen(href)) {
+              rows.push({ href, hint: $(el).text().replace(/\s+/g, " ").trim() });
+            }
+          });
+        });
+      } catch (e) {
+      }
+      if (!rows.length) {
+        const re = /<a[^>]+href="(https?:[^"]+)"[^>]*>([\s\S]*?)<\/a\s*>/gi;
+        let m;
+        while ((m = re.exec(html)) !== null) {
+          const href = m[1];
+          if (/hubcloud|hubdrive|hubcdn|hdstream4u|hubstream|gdflix|pixeldrain|greenmotors/i.test(href) && !seen(href)) {
+            rows.push({ href, hint: m[2].replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() });
+          }
+        }
+      }
+      const out = [];
+      for (let i = 0; i < Math.min(rows.length, 9); i += 3) {
+        const chunk = rows.slice(i, i + 3);
+        const settled = yield Promise.all(chunk.map(function(row) {
+          return resolveSourceLink(source, row.href, row.hint).catch(function() {
+            return [];
+          });
+        }));
+        settled.forEach(function(r) {
+          if (Array.isArray(r))
+            out.push.apply(out, r);
+        });
+      }
+      return out;
+    } catch (e) {
+      return [];
+    }
+  });
+}
+function applyHint(streams, hint) {
+  const h = String(hint || "").trim();
+  if (!h)
+    return streams || [];
+  (streams || []).forEach(function(s) {
+    if (!s || s._rich)
+      return;
+    s.title = (s.title || s.name || "") + " " + h;
+    if (!s.quality || s.quality === "Auto") {
+      const q = parseQuality(h);
+      if (q && q !== "Auto")
+        s.quality = q;
+    }
+  });
+  return streams || [];
+}
+function resolveSourceLink(source, url, hint) {
+  return __async(this, null, function* () {
+    return applyHint(yield routeSourceLink(source, url, hint), hint);
+  });
+}
+function routeSourceLink(source, url, hint) {
   return __async(this, null, function* () {
     const u = String(url || "");
     if (!u)
       return [];
+    if (/[?&]id=/.test(u) || /techyboy4u|gadgetsweb|cryptoinsights|bloggingvector|ampproject\./i.test(u)) {
+      const next = yield getRedirectLinks(u);
+      if (next && next !== u)
+        return yield routeSourceLink(source, next, hint);
+      return [];
+    }
+    if (/hblinks\.|hubstream\.dad/i.test(u))
+      return yield resolveHblinks(source, u);
+    if (/hubcdn\./i.test(u))
+      return yield resolveHubcdn(source, u);
+    if (/hdstream4u\./i.test(u))
+      return yield resolveVidhide(source, u);
+    if (/hubstream\.|vidstack/i.test(u))
+      return yield resolveVidstack(source, u);
     if (/hubdrive\./i.test(u))
-      return yield resolveHubdrive(u);
+      return yield resolveHubdrive(u, source);
     if (/hubcloud\.|vcloud\./i.test(u))
       return yield resolveHubcloud(u, source);
     if (/gofile\.io\/d\//i.test(u)) {
@@ -1038,6 +1385,14 @@ function resolveSourceLink(source, url) {
         return [];
       const s = makeStream(source, source + " [Gofile] " + g.name, g.url, parseQuality(g.name), {}, []);
       return s ? [enrichStream(s, g.name + " " + g.url, null)] : [];
+    }
+    if (/pixeldra\./i.test(u)) {
+      const id = u.split("/").filter(Boolean).pop();
+      if (!id)
+        return [];
+      const target = u.indexOf("/api/file/") !== -1 ? u : getBaseUrl(u) + "/api/file/" + id + "?download";
+      const s = makeStream(source, source + " [Pixeldrain]", target, "Auto", { "User-Agent": UA }, []);
+      return s ? [s] : [];
     }
     if (/\.(mp4|mkv|m3u8)(\?|$)/i.test(u)) {
       const s = makeStream(source, source + " - " + parseQuality(u), u, parseQuality(u), { "User-Agent": UA }, []);

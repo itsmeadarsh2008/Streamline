@@ -186,10 +186,13 @@ export async function runLimited(tasks, concurrency) {
 export function withTimeout(promise, ms, label) {
     if (!hasTimers()) return promise;
     const timeout = ms || 25000;
+    let timer = null;
     return Promise.race([
-        promise,
+        Promise.resolve(promise).finally(function () {
+            if (timer) clearTimeout(timer);
+        }),
         new Promise(function (resolve) {
-            setTimeout(function () {
+            timer = setTimeout(function () {
                 console.log("[Streamline] timeout: " + label);
                 resolve([]);
             }, timeout);

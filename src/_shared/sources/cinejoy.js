@@ -64,6 +64,7 @@ export async function scrape(ctx) {
         for (const srv of servers.slice(0, 6)) {
             try {
                 const name = (srv && srv.name) || srv;
+                const servLabel = name ? String(name).charAt(0).toUpperCase() + String(name).slice(1) : name;
                 let target =
                     CINEJOY_API + "/?title=" + encodeURIComponent(ctx.title) +
                     "&type=" + type + "&year=" + (ctx.year || "") +
@@ -102,14 +103,14 @@ export async function scrape(ctx) {
                 list.forEach(function (st) {
                     if (!st) return;
                     if (st.playlist) {
-                        const s = makeStream("Cinejoy", "Cinejoy - " + (st.id || name) + " [HLS]", st.playlist, "1080p", { Referer: CINEJOY_BASE + "/" }, []);
+                        const s = makeStream("Cinejoy", "Cinejoy - " + servLabel + " [HLS]", st.playlist, "1080p", { Referer: CINEJOY_BASE + "/" }, []);
                         if (s) out.push(s);
                     }
                     const quals = st.qualities || st.files || {};
                     Object.keys(quals).forEach(function (k) {
                         const u = quals[k];
                         if (!u || String(u).indexOf("https") !== 0) return;
-                        const s = makeStream("Cinejoy", "Cinejoy - " + (st.id || name) + " " + k, u, parseQuality(k), { Referer: CINEJOY_BASE + "/" }, []);
+                        const s = makeStream("Cinejoy", "Cinejoy - " + servLabel + " " + k, u, parseQuality(k), { Referer: CINEJOY_BASE + "/" }, []);
                         if (s) out.push(s);
                     });
                     ((st.captions) || []).forEach(function () { /* captions surfaced via shared subs */ });

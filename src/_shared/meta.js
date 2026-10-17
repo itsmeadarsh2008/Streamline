@@ -216,10 +216,10 @@ export function richName(provider, meta) {
  * the rich block, fill quality/size/language (+seeders/infoHash passthrough).
  * Streams already marked _rich are returned untouched.
  */
-export function enrichStream(stream, raw, line1) {
+export function enrichStream(stream, raw, line1, opts) {
     if (!stream || stream._rich) return stream;
-    const meta = parseMeta((raw || "") + " " + (stream.url || ""));
-    const rt = richTitle(stream.name, line1 || stream.title, meta);
+    const meta = parseMeta((raw || "") + (opts && opts.skipUrl ? "" : " " + (stream.url || "")));
+    const rt = richTitle(stream.name, line1 || stream.title, meta, opts && opts.container);
     const copy = Object.assign({}, stream);
     copy.name = richName(stream.name, meta);
     copy.title = rt.text;

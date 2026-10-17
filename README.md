@@ -24,7 +24,7 @@ builds do not.
 
 ## Features
 
-- **23 providers, one per source.** Enable only what you use; test each in
+- **25 providers, one per source.** Enable only what you use; test each in
   isolation. No mega-provider, no 22-source pile-up in a single test run.
 - **Full quality, giant files kept.** From 480p to UHD REMUX — nothing is
   filtered by size. Each row carries its size/quality label so you pick to
@@ -93,13 +93,16 @@ Stremio torrent/subtitle helpers):
 | VidFast / Vidcore / VaPlayer / PrimeSrc | Multi-step JSON APIs |
 | ShowBox (needs token) / MovieBox / AllMovieLand / Cinejoy | Token/search/play flows |
 | 4KHDHub / UHDMovies / MoviesMod / MoviesDrive / VegaMovies / RogMovies / Bollyflix | Mirror scrapes + HubCloud/VCloud terminals |
+| HDHub4u | Typesense search + per-quality/episode hub links (HDStream4u, HubStream, HubCdn, Hblinks chains) |
 | Anizone | Title-based multi-audio anime |
 | AniDB | Subbed/dubbed anime, multi-audio HLS (clean-room port, unobfuscated) |
+| Just4Anime | Multi-server anime sub/dub HLS split into per-quality rows, real VTT captions |
 | Torrents | Torrentio + TorrentsDB magnets for native debrid |
 
 Shared HubCloud/VCloud terminals (FSL, Mega, Pixeldrain, 10Gbps, Buzz,
-Gofile), the hrefli bypass and the redirect-chain decoder live in
-`src/_shared/sources/hubcloud.js`.
+Gofile), the redirect-chain decoder, the VidHidePro unpacker (HdStream4u),
+the VidStack AES terminal (HubStream), the HubCdn `reurl` decoder and the
+Hblinks archive walker live in `src/_shared/sources/hubcloud.js`.
 
 Dynamic mirror domains resolve at runtime from the same `urls.json`
 CineStream's `init()` loads, so host rotations rarely need a code change.
@@ -148,7 +151,7 @@ Rules that keep bundles working in Nuvio:
 - Every provider must fail soft: catch internally and return `[]`.
 
 ```
-manifest.json               # plugin repository manifest (23 providers)
+manifest.json               # plugin repository manifest (25 providers)
 src/<provider>/index.js      # one entry per source (edit here)
 src/_shared/                # library: tmdb/ctx, utils, subs, torrents, sources
 providers/<id>.js           # built artifacts — what Nuvio downloads

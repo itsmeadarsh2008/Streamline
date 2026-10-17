@@ -31,7 +31,7 @@ function loadBuilt(id) {
 async function offline() {
     console.log("Manifest + provider surface:");
     ok("repo named Streamline", manifest.name === "Streamline");
-    ok("23 scrapers", manifest.scrapers.length === 23);
+    ok("25 scrapers", manifest.scrapers.length === 25);
     const ids = manifest.scrapers.map(function (s) { return s.id; });
     ok("ids unique", new Set(ids).size === ids.length);
 
@@ -166,6 +166,8 @@ async function live() {
         ["vidlink", "693134", "movie", null, null],
         ["videasy", "693134", "movie", null, null],
         ["hexa", "1396", "tv", 1, 1],
+        ["hdhub4u", "360814", "movie", null, null],
+        ["just4anime", "46260", "tv", 1, 1],
         ["torrents", "693134", "movie", null, null]
     ];
     let total = 0;
