@@ -111,3 +111,7 @@ dist
 
 # TernJS port file
 .tern-port
+
+# Local upstream reference clones (CineStream, All-in-One-Nuvio…): porting
+# reference only — never shipped, and CI/tests never read from here.
+references/
